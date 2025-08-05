@@ -92,12 +92,26 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
       <div className={node.type === 'folder' ? 'text-blue-600' : getFileTypeColor(node.name)}>
         {getIcon()}
       </div>
-      <span className="text-sm font-medium text-gray-800 truncate">
-        {node.name}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-gray-800 truncate block">
+          {node.name}
+        </span>
+        {node.type === 'folder' && node.children && node.children.length > 0 && (
+          <span className="text-xs text-gray-500">
+            {node.children.length} item{node.children.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
       {node.type === 'file' && (
         <div className="text-xs text-gray-500 ml-auto">
           {node.name.split('.').pop()?.toUpperCase()}
+        </div>
+      )}
+      {node.type === 'folder' && node.children && node.children.length > 0 && (
+        <div className={`text-xs px-1.5 py-0.5 rounded-full ${
+          node.expanded ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+        }`}>
+          {node.expanded ? '−' : '+'}
         </div>
       )}
     </div>
@@ -137,6 +151,23 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, onCreateFile, 
             >
               <FolderPlus size={16} />
               <span>New Folder</span>
+            </button>
+            <hr className="my-1" />
+          </>
+        )}
+        {/* Show file operations for files */}
+        {node?.type === 'file' && (
+          <>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 transition-colors"
+              onClick={() => {
+                // Open the file in editor
+                window.dispatchEvent(new CustomEvent('open-file', { detail: node }));
+                onClose();
+              }}
+            >
+              <File size={16} />
+              <span>Open</span>
             </button>
             <hr className="my-1" />
           </>
@@ -184,6 +215,7 @@ const Canvas: React.FC = () => {
     if (node.type === 'file') {
       dispatch(openEditor(node));
     } else if (node.type === 'folder') {
+      // Toggle folder expansion for visual feedback
       dispatch(toggleFolder(node.id));
     }
   }, [dispatch]);
@@ -193,19 +225,20 @@ const Canvas: React.FC = () => {
     fileSystemNode: CustomNode,
   }), []);
 
-  // Convert file system nodes to React Flow nodes
-  const reactFlowNodes = useMemo(() => {
-    const convertToReactFlowNodes = (nodeList: FileSystemNode[], parentX = 0, parentY = 0): Node[] => {
-      const result: Node[] = [];
-      let yOffset = 0;
+  // Convert file system nodes to React Flow nodes and edges
+  const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
 
+    const flattenAllNodes = (nodeList: FileSystemNode[], level = 0): void => {
       for (const node of nodeList) {
+        // Create a React Flow node for each file system node
         const reactFlowNode: Node = {
           id: node.id,
           type: 'fileSystemNode',
           position: {
-            x: node.x || parentX + 250,
-            y: node.y || parentY + yOffset
+            x: node.x ?? (100 + level * 300),
+            y: node.y ?? (100 + nodes.length * 120)
           },
           data: {
             fileSystemNode: node,
@@ -217,46 +250,91 @@ const Canvas: React.FC = () => {
           draggable: true,
         };
 
-        result.push(reactFlowNode);
-        yOffset += 100;
+        nodes.push(reactFlowNode);
 
-        // Add children if folder is expanded
-        if (node.type === 'folder' && node.expanded && node.children) {
-          const childNodes = convertToReactFlowNodes(
-            node.children,
-            reactFlowNode.position.x + 300,
-            reactFlowNode.position.y
-          );
-          result.push(...childNodes);
+        // Always add children regardless of expansion state
+        // This ensures nested files/folders are always accessible
+        if (node.type === 'folder' && node.children && node.children.length > 0) {
+          // Create edges from parent to children
+          for (const child of node.children) {
+            edges.push({
+              id: `edge-${node.id}-${child.id}`,
+              source: node.id,
+              target: child.id,
+              style: {
+                stroke: '#cbd5e1',
+                strokeWidth: 2,
+                strokeDasharray: node.expanded ? '0' : '5,5'
+              },
+              type: 'smoothstep',
+              animated: false,
+            });
+          }
+
+          flattenAllNodes(node.children, level + 1);
         }
       }
-
-      return result;
     };
 
-    return convertToReactFlowNodes(fileSystemNodes);
+    flattenAllNodes(fileSystemNodes);
+    return { reactFlowNodes: nodes, reactFlowEdges: edges };
   }, [fileSystemNodes, selectedNodeId, handleFileDoubleClick, handleNodeSelect, handleContextMenu]);
 
-  // Update React Flow nodes when file system nodes change
+  // Listen for custom file open events from context menu
+  useEffect(() => {
+    const handleOpenFile = (event: CustomEvent) => {
+      const file = event.detail;
+      if (file && file.type === 'file') {
+        dispatch(openEditor(file));
+      }
+    };
+
+    window.addEventListener('open-file', handleOpenFile as EventListener);
+    return () => {
+      window.removeEventListener('open-file', handleOpenFile as EventListener);
+    };
+  }, [dispatch]);
+
+  // Update React Flow nodes and edges when file system nodes change
   useEffect(() => {
     setNodes(reactFlowNodes);
-  }, [reactFlowNodes, setNodes]);
+    setEdges(reactFlowEdges);
+  }, [reactFlowNodes, reactFlowEdges, setNodes, setEdges]);
 
   const handleCreateNode = useCallback((type: 'file' | 'folder', parentId: string) => {
     const name = prompt(`Enter ${type} name:`);
     if (name) {
+      // Find the parent node to position the new node relative to it
+      const findParentNode = (nodes: FileSystemNode[], targetId: string): FileSystemNode | null => {
+        for (const node of nodes) {
+          if (node.id === targetId) {
+            return node;
+          }
+          if (node.children) {
+            const found = findParentNode(node.children, targetId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const parentNode = findParentNode(fileSystemNodes, parentId);
+      const baseX = parentNode?.x ?? 100;
+      const baseY = parentNode?.y ?? 100;
+
       const newNode = {
         type,
         name,
-        x: Math.random() * 300 + 100,
-        y: Math.random() * 300 + 100,
+        // Position new nodes slightly offset from parent
+        x: baseX + 300 + Math.random() * 100,
+        y: baseY + 50 + Math.random() * 100,
         expanded: type === 'folder' ? false : undefined,
         content: type === 'file' ? '' : undefined,
       };
       dispatch(createNodeAPI({ parentId, node: newNode }));
     }
     setContextMenu(null);
-  }, [dispatch]);
+  }, [dispatch, fileSystemNodes]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     if (confirm('Are you sure you want to delete this item?')) {
