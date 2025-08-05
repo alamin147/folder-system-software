@@ -7,6 +7,7 @@ import ReactFlow, {
   ConnectionMode,
   Panel,
   MiniMap,
+  MarkerType,
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -30,7 +31,11 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 
   const handleClick = useCallback(() => {
     onSelect(node.id);
-  }, [node.id, onSelect]);
+    // Toggle folder expansion on left click
+    if (node.type === 'folder') {
+      onDoubleClick(node); // This will trigger the toggle
+    }
+  }, [node.id, node.type, onSelect, onDoubleClick]);
 
   const handleDoubleClick = useCallback(() => {
     if (node.type === 'file') {
@@ -108,10 +113,12 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
         </div>
       )}
       {node.type === 'folder' && node.children && node.children.length > 0 && (
-        <div className={`text-xs px-1.5 py-0.5 rounded-full ${
-          node.expanded ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+        <div className={`text-sm px-2 py-1 rounded-md transition-all ${
+          node.expanded
+            ? 'bg-green-100 text-green-700 border border-green-300'
+            : 'bg-gray-100 text-gray-600 border border-gray-300'
         }`}>
-          {node.expanded ? '−' : '+'}
+          {node.expanded ? '📂' : '📁'}
         </div>
       )}
     </div>
@@ -252,26 +259,37 @@ const Canvas: React.FC = () => {
 
         nodes.push(reactFlowNode);
 
-        // Always add children regardless of expansion state
-        // This ensures nested files/folders are always accessible
+        // Only add children if the folder is expanded
+        // This will hide collapsed folder children
         if (node.type === 'folder' && node.children && node.children.length > 0) {
-          // Create edges from parent to children
-          for (const child of node.children) {
-            edges.push({
-              id: `edge-${node.id}-${child.id}`,
-              source: node.id,
-              target: child.id,
-              style: {
-                stroke: '#cbd5e1',
-                strokeWidth: 2,
-                strokeDasharray: node.expanded ? '0' : '5,5'
-              },
-              type: 'smoothstep',
-              animated: false,
-            });
+          // Only create edges to children if the folder is expanded
+          if (node.expanded) {
+            for (const child of node.children) {
+              edges.push({
+                id: `edge-${node.id}-${child.id}`,
+                source: node.id,
+                target: child.id,
+                style: {
+                  stroke: child.type === 'folder' ? '#8b5cf6' : '#10b981', // Purple for folders, green for files
+                  strokeWidth: 3,
+                  strokeDasharray: '0'
+                },
+                type: 'smoothstep',
+                animated: false,
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  color: child.type === 'folder' ? '#8b5cf6' : '#10b981',
+                  width: 20,
+                  height: 20
+                }
+              });
+            }
           }
 
-          flattenAllNodes(node.children, level + 1);
+          // Only recurse into children if the folder is expanded
+          if (node.expanded) {
+            flattenAllNodes(node.children, level + 1);
+          }
         }
       }
     };
