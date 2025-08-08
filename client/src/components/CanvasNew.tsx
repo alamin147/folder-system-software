@@ -1,4 +1,18 @@
 import React, { useCallback, useState, useMemo, useEffect } from "react";
+import {
+  SiPython,
+  SiJavascript,
+  SiTypescript,
+  SiReact,
+  SiC,
+  SiCplusplus,
+  SiHtml5,
+  SiCss3,
+  SiGnubash,
+  SiMarkdown,
+  SiMysql,
+} from "react-icons/si";
+import { AiOutlineFileText } from "react-icons/ai";
 import ReactFlow, {
   Controls,
   Background,
@@ -20,6 +34,12 @@ import {
   FolderPlus,
   FilePlus,
   Trash2,
+  Code,
+  Settings,
+  Image,
+  Music,
+  Video,
+  Archive,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
@@ -31,6 +51,7 @@ import {
 } from "../store/fileSystemSlice";
 import { openEditor } from "../store/editorSlice";
 import type { FileSystemNode } from "../types/index";
+import { FaJava, FaPhp } from "react-icons/fa";
 
 // Custom Node Component
 interface CustomNodeData {
@@ -41,6 +62,112 @@ interface CustomNodeData {
   isSelected: boolean;
   parentNode?: FileSystemNode;
 }
+
+// Function to get file icon based on extension
+const getFileIcon = (fileName: string, size: number = 20) => {
+  const extension = fileName.split(".").pop()?.toLowerCase();
+
+  switch (extension) {
+    // Programming languages
+    case "js":
+      return <SiJavascript size={size} className="text-yellow-500" />;
+    case "jsx":
+      return <SiReact size={size} className="text-blue-400" />;
+    case "ts":
+      return <SiTypescript size={size} className="text-blue-600" />;
+    case "tsx":
+      return <SiReact size={size} className="text-blue-500" />;
+    case "py":
+      return <SiPython size={size} className="text-yellow-400" />;
+    case "c":
+      return <SiC size={size} className="text-blue-600" />;
+    case "cpp":
+    case "cc":
+    case "cxx":
+      return <SiCplusplus size={size} className="text-blue-700" />;
+    case "java":
+      return <FaJava size={size} className="text-red-600" />;
+    case "html":
+    case "htm":
+      return <SiHtml5 size={size} className="text-orange-600" />;
+    case "css":
+    case "scss":
+    case "sass":
+    case "less":
+      return <SiCss3 size={size} className="text-blue-500" />;
+    case "sh":
+    case "bash":
+    case "zsh":
+      return <SiGnubash size={size} className="text-gray-700" />;
+    case "md":
+    case "markdown":
+      return <SiMarkdown size={size} className="text-gray-800" />;
+    case "txt":
+      return <AiOutlineFileText size={size} className="text-gray-600" />;
+    case "db":
+    case "sqlite":
+    case "sql":
+      return <SiMysql size={size} className="text-blue-700" />;
+
+    case "php":
+      return <FaPhp size={size} className="text-purple-600" />;
+    case "rb":
+      return <Code size={size} className="text-red-600" />;
+    case "go":
+      return <Code size={size} className="text-cyan-600" />;
+    case "rs":
+      return <Code size={size} className="text-orange-700" />;
+
+    // Images
+    case "jpg":
+    case "jpeg":
+    case "png":
+    case "gif":
+    case "svg":
+    case "bmp":
+    case "webp":
+      return <Image size={size} className="text-green-500" />;
+
+    // Audio
+    case "mp3":
+    case "wav":
+    case "flac":
+    case "aac":
+    case "ogg":
+      return <Music size={size} className="text-purple-500" />;
+
+    // Video
+    case "mp4":
+    case "avi":
+    case "mov":
+    case "wmv":
+    case "flv":
+    case "webm":
+      return <Video size={size} className="text-red-500" />;
+
+    // Archives
+    case "zip":
+    case "rar":
+    case "tar":
+    case "gz":
+    case "7z":
+      return <Archive size={size} className="text-yellow-500" />;
+
+    // Config files
+    case "json":
+    case "xml":
+    case "yaml":
+    case "yml":
+    case "toml":
+    case "ini":
+    case "conf":
+      return <Settings size={size} className="text-gray-500" />;
+
+    // Default file icon
+    default:
+      return <File size={size} className="text-gray-600" />;
+  }
+};
 
 const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
   const {
@@ -76,14 +203,30 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
     if (node.type === "folder") {
       return node.expanded ? <FolderOpen size={20} /> : <Folder size={20} />;
     }
-    return <File size={20} />;
+    return getFileIcon(node.name, 20);
+  };
+
+  // Calculate dynamic width based on text length
+  const getNodeWidth = () => {
+    const baseWidth = 140;
+    const textLength = node.name.length;
+
+    // Only expand if text is longer than 15 characters
+    if (textLength <= 6) {
+      return baseWidth; // use base width for short/normal names
+    }
+
+    // For long names, calculate width based on character count
+    const charWidth = 9; // pixels per character
+    const calculatedWidth = textLength * charWidth + 90; // +60 for padding and icon
+    return Math.min(calculatedWidth, 400); // max width 400px
   };
 
   return (
     <div
       className={`
         flex flex-col space-y-1 p-3 rounded-lg border-2 cursor-pointer
-        transition-all duration-200 hover:shadow-lg min-w-[140px] max-w-[200px]
+        transition-all duration-200 hover:shadow-lg
         ${
           isSelected
             ? "border-blue-500 bg-blue-50 shadow-lg scale-105"
@@ -97,6 +240,7 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
             : "bg-gradient-to-br from-white to-gray-50"
         }
       `}
+      style={{ width: `${getNodeWidth()}px` }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleRightClick}
@@ -161,8 +305,11 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
         >
           {getIcon()}
         </div>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-gray-800 truncate block">
+        <div className="flex-1">
+          <span
+            className="text-sm font-medium text-gray-800 whitespace-nowrap "
+            title={node.name}
+          >
             {node.name}
           </span>
           {node.type === "folder" &&
