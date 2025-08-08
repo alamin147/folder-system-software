@@ -24,10 +24,11 @@ interface CustomNodeData {
   onSelect: (nodeId: string) => void;
   onContextMenu: (e: React.MouseEvent, node: FileSystemNode) => void;
   isSelected: boolean;
+  parentNode?: FileSystemNode;
 }
 
 const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
-  const { fileSystemNode: node, onDoubleClick, onSelect, onContextMenu, isSelected } = data;
+  const { fileSystemNode: node, onDoubleClick, onSelect, onContextMenu, isSelected, parentNode } = data;
 
   const handleClick = useCallback(() => {
     onSelect(node.id);
@@ -82,45 +83,64 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
   return (
     <div
       className={`
-        flex items-center space-x-2 p-3 rounded-lg border-2 cursor-pointer
+        flex flex-col space-y-1 p-3 rounded-lg border-2 cursor-pointer
         transition-all duration-200 hover:shadow-lg min-w-[140px] max-w-[200px]
         ${isSelected
           ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
           : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md'
         }
-        ${node.type === 'folder' ? 'bg-gradient-to-br from-blue-50 to-blue-100' : 'bg-gradient-to-br from-white to-gray-50'}
+        ${node.type === 'folder'
+          ? node.expanded
+            ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-md'
+            : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+          : 'bg-gradient-to-br from-white to-gray-50'
+        }
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleRightClick}
     >
-      <div className={node.type === 'folder' ? 'text-blue-600' : getFileTypeColor(node.name)}>
-        {getIcon()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-gray-800 truncate block">
-          {node.name}
-        </span>
-        {node.type === 'folder' && node.children && node.children.length > 0 && (
-          <span className="text-xs text-gray-500">
-            {node.children.length} item{node.children.length !== 1 ? 's' : ''}
+      {/* Source indicator for child nodes */}
+      {parentNode && (
+        <div className="flex items-center space-x-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          <span>📁</span>
+          <span>from: {parentNode.name}</span>
+        </div>
+      )}
+
+      {/* Main node content */}
+      <div className="flex items-center space-x-2">
+        <div className={node.type === 'folder' ? 'text-blue-600' : getFileTypeColor(node.name)}>
+          {getIcon()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-gray-800 truncate block">
+            {node.name}
           </span>
+          {node.type === 'folder' && node.children && node.children.length > 0 && (
+            <span className="text-xs text-gray-500">
+              {node.children.length} item{node.children.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {node.type === 'file' && (
+          <div className="text-xs text-gray-500 ml-auto">
+            {node.name.split('.').pop()?.toUpperCase()}
+          </div>
+        )}
+        {node.type === 'folder' && node.children && node.children.length > 0 && (
+          <div className={`text-sm px-2 py-1 rounded-md transition-all duration-300 flex items-center space-x-1 ${
+            node.expanded
+              ? 'bg-blue-100 text-blue-700 border border-blue-300 shadow-md'
+              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+          }`}>
+            <span>{node.expanded ? '📂' : '📁'}</span>
+            <span className={`text-xs transition-transform duration-200 ${node.expanded ? 'rotate-90' : ''}`}>
+              ▶
+            </span>
+          </div>
         )}
       </div>
-      {node.type === 'file' && (
-        <div className="text-xs text-gray-500 ml-auto">
-          {node.name.split('.').pop()?.toUpperCase()}
-        </div>
-      )}
-      {node.type === 'folder' && node.children && node.children.length > 0 && (
-        <div className={`text-sm px-2 py-1 rounded-md transition-all ${
-          node.expanded
-            ? 'bg-green-100 text-green-700 border border-green-300'
-            : 'bg-gray-100 text-gray-600 border border-gray-300'
-        }`}>
-          {node.expanded ? '📂' : '📁'}
-        </div>
-      )}
     </div>
   );
 };
@@ -219,10 +239,12 @@ const Canvas: React.FC = () => {
   }, []);
 
   const handleFileDoubleClick = useCallback((node: FileSystemNode) => {
+    console.log('Node clicked:', node.name, 'Type:', node.type, 'Expanded:', node.expanded);
     if (node.type === 'file') {
       dispatch(openEditor(node));
     } else if (node.type === 'folder') {
       // Toggle folder expansion for visual feedback
+      console.log('Toggling folder:', node.id);
       dispatch(toggleFolder(node.id));
     }
   }, [dispatch]);
@@ -237,7 +259,7 @@ const Canvas: React.FC = () => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
-    const flattenAllNodes = (nodeList: FileSystemNode[], level = 0): void => {
+    const flattenAllNodes = (nodeList: FileSystemNode[], level = 0, parentNode?: FileSystemNode): void => {
       for (const node of nodeList) {
         // Create a React Flow node for each file system node
         const reactFlowNode: Node = {
@@ -253,48 +275,49 @@ const Canvas: React.FC = () => {
             onSelect: handleNodeSelect,
             onContextMenu: handleContextMenu,
             isSelected: selectedNodeId === node.id,
+            parentNode: parentNode, // Pass parent info to show source
           },
           draggable: true,
         };
 
         nodes.push(reactFlowNode);
 
-        // Only add children if the folder is expanded
-        // This will hide collapsed folder children
-        if (node.type === 'folder' && node.children && node.children.length > 0) {
-          // Only create edges to children if the folder is expanded
-          if (node.expanded) {
-            for (const child of node.children) {
-              edges.push({
-                id: `edge-${node.id}-${child.id}`,
-                source: node.id,
-                target: child.id,
-                style: {
-                  stroke: child.type === 'folder' ? '#8b5cf6' : '#10b981', // Purple for folders, green for files
-                  strokeWidth: 3,
-                  strokeDasharray: '0'
-                },
-                type: 'smoothstep',
-                animated: false,
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-                  color: child.type === 'folder' ? '#8b5cf6' : '#10b981',
-                  width: 20,
-                  height: 20
-                }
-              });
+        // ALWAYS create edges for parent-child relationships when parent exists
+        if (parentNode) {
+          const edge: Edge = {
+            id: `edge-${parentNode.id}-${node.id}`,
+            source: parentNode.id,
+            target: node.id,
+            style: {
+              stroke: node.type === 'folder' ? '#3b82f6' : '#10b981',
+              strokeWidth: 5,
+              strokeLinecap: 'round',
+            },
+            type: 'straight',
+            animated: true,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: node.type === 'folder' ? '#3b82f6' : '#10b981',
+              width: 20,
+              height: 20
             }
-          }
+          };
+          edges.push(edge);
+          console.log('Created edge:', edge.id, 'from', parentNode.name, 'to', node.name);
+        }
 
-          // Only recurse into children if the folder is expanded
-          if (node.expanded) {
-            flattenAllNodes(node.children, level + 1);
-          }
+        // Only recurse into children if the folder is expanded
+        if (node.type === 'folder' && node.children && node.children.length > 0 && node.expanded) {
+          console.log('Expanding folder:', node.name, 'with', node.children.length, 'children');
+          flattenAllNodes(node.children, level + 1, node);
         }
       }
     };
 
     flattenAllNodes(fileSystemNodes);
+    console.log('FileSystem nodes:', fileSystemNodes);
+    console.log('Generated nodes:', nodes.length, 'Generated edges:', edges.length);
+    console.log('Edges details:', edges);
     return { reactFlowNodes: nodes, reactFlowEdges: edges };
   }, [fileSystemNodes, selectedNodeId, handleFileDoubleClick, handleNodeSelect, handleContextMenu]);
 
@@ -392,8 +415,54 @@ const Canvas: React.FC = () => {
     dispatch(saveFileSystemTree(fileSystemNodes));
   }, [dispatch, fileSystemNodes]);
 
+  // Debug function to expand all folders to test connections
+  const handleExpandAll = useCallback(() => {
+    const expandAllFolders = (nodes: FileSystemNode[]): void => {
+      nodes.forEach(node => {
+        if (node.type === 'folder' && !node.expanded) {
+          console.log('Expanding folder:', node.name);
+          dispatch(toggleFolder(node.id));
+        }
+        if (node.children) {
+          expandAllFolders(node.children);
+        }
+      });
+    };
+    expandAllFolders(fileSystemNodes);
+  }, [dispatch, fileSystemNodes]);
+
+  // Test function to create a simple test structure
+  const handleCreateTestStructure = useCallback(() => {
+    console.log('Creating test structure...');
+    // Force some folders to be expanded for testing
+    const testFolders = fileSystemNodes.filter((n: FileSystemNode) => n.type === 'folder');
+    if (testFolders.length > 0) {
+      testFolders.slice(0, 2).forEach((folder: FileSystemNode) => {
+        if (!folder.expanded) {
+          console.log('Force expanding:', folder.name);
+          dispatch(toggleFolder(folder.id));
+        }
+      });
+    }
+  }, [dispatch, fileSystemNodes]);
+
   return (
     <div className="w-full h-full">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .react-flow__edge path {
+            stroke-linecap: round !important;
+            stroke-width: 5px !important;
+          }
+          .react-flow__edge.animated path {
+            animation: dash-flow 2s linear infinite !important;
+          }
+          @keyframes dash-flow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: 20; }
+          }
+        `
+      }} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -405,6 +474,13 @@ const Canvas: React.FC = () => {
         fitView
         attributionPosition="bottom-left"
         className="bg-gray-50"
+        defaultEdgeOptions={{
+          animated: true,
+          style: {
+            strokeWidth: 5,
+            stroke: '#3b82f6',
+          },
+        }}
       >
         <Background color="#e5e7eb" gap={20} />
         <Controls />
@@ -437,6 +513,22 @@ const Canvas: React.FC = () => {
             >
               <FolderPlus size={14} />
               <span>Folder</span>
+            </button>
+            <button
+              onClick={handleExpandAll}
+              className="flex items-center space-x-1 px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm transition-colors"
+              title="Expand all folders to show connections"
+            >
+              <FolderOpen size={14} />
+              <span>Expand All</span>
+            </button>
+            <button
+              onClick={handleCreateTestStructure}
+              className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm transition-colors"
+              title="Test connections"
+            >
+              <RefreshCw size={14} />
+              <span>Test</span>
             </button>
             <button
               onClick={handleSaveTree}
