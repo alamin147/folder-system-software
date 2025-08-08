@@ -76,12 +76,12 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
       onContextMenu={handleRightClick}
     >
       {/* Source indicator for child nodes */}
-      {parentNode && (
+      {/* {parentNode && (
         <div className="flex items-center space-x-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
           <span>📁</span>
           <span>from: {parentNode.name}</span>
         </div>
-      )}
+      )} */}
 
       {/* Main node content */}
       <div className="flex items-center space-x-2">
@@ -98,7 +98,7 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
             </span>
           )}
         </div>
-        {node.type === 'folder' && node.children && node.children.length > 0 && (
+        {/* {node.type === 'folder' && node.children && node.children.length > 0 && (
           <div className={`text-sm px-2 py-1 rounded-md transition-all duration-300 flex items-center space-x-1 ${
             node.expanded
               ? 'bg-blue-100 text-blue-700 border border-blue-300 shadow-md'
@@ -109,7 +109,7 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
               ▶
             </span>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
