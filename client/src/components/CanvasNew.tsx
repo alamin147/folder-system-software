@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from "react";
 import ReactFlow, {
   Controls,
   Background,
@@ -8,14 +8,29 @@ import ReactFlow, {
   Panel,
   MiniMap,
   MarkerType,
-} from 'reactflow';
-import type { Node, Edge } from 'reactflow';
-import 'reactflow/dist/style.css';
-import { Folder, File, FolderOpen, FolderPlus, FilePlus, Trash2 } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectNode, toggleFolder, createNodeAPI, deleteNodeAPI, updateNodePosition } from '../store/fileSystemSlice';
-import { openEditor } from '../store/editorSlice';
-import type { FileSystemNode } from '../types/index';
+  Handle,
+  Position,
+} from "reactflow";
+import type { Node, Edge } from "reactflow";
+import "reactflow/dist/style.css";
+import {
+  Folder,
+  File,
+  FolderOpen,
+  FolderPlus,
+  FilePlus,
+  Trash2,
+} from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  selectNode,
+  toggleFolder,
+  createNodeAPI,
+  deleteNodeAPI,
+  updateNodePosition,
+} from "../store/fileSystemSlice";
+import { openEditor } from "../store/editorSlice";
+import type { FileSystemNode } from "../types/index";
 
 // Custom Node Component
 interface CustomNodeData {
@@ -28,28 +43,37 @@ interface CustomNodeData {
 }
 
 const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
-  const { fileSystemNode: node, onDoubleClick, onSelect, onContextMenu, isSelected } = data;
+  const {
+    fileSystemNode: node,
+    onDoubleClick,
+    onSelect,
+    onContextMenu,
+    isSelected,
+  } = data;
 
   const handleClick = useCallback(() => {
     onSelect(node.id);
-    if (node.type === 'folder') {
+    if (node.type === "folder") {
       onDoubleClick(node);
     }
   }, [node.id, node.type, onSelect, onDoubleClick]);
 
   const handleDoubleClick = useCallback(() => {
-    if (node.type === 'file') {
+    if (node.type === "file") {
       onDoubleClick(node);
     }
   }, [node, onDoubleClick]);
 
-  const handleRightClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    onContextMenu(e, node);
-  }, [node, onContextMenu]);
+  const handleRightClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      onContextMenu(e, node);
+    },
+    [node, onContextMenu]
+  );
 
   const getIcon = () => {
-    if (node.type === 'folder') {
+    if (node.type === "folder") {
       return node.expanded ? <FolderOpen size={20} /> : <Folder size={20} />;
     }
     return <File size={20} />;
@@ -60,21 +84,68 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
       className={`
         flex flex-col space-y-1 p-3 rounded-lg border-2 cursor-pointer
         transition-all duration-200 hover:shadow-lg min-w-[140px] max-w-[200px]
-        ${isSelected
-          ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
-          : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md'
+        ${
+          isSelected
+            ? "border-blue-500 bg-blue-50 shadow-lg scale-105"
+            : "border-gray-300 bg-white hover:border-gray-400 hover:shadow-md"
         }
-        ${node.type === 'folder'
-          ? node.expanded
-            ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-md'
-            : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-          : 'bg-gradient-to-br from-white to-gray-50'
+        ${
+          node.type === "folder"
+            ? node.expanded
+              ? "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-md"
+              : "bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200"
+            : "bg-gradient-to-br from-white to-gray-50"
         }
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleRightClick}
     >
+      {/* Connection Handles */}
+      {/* Input handles - top for folders, left for files */}
+      <Handle
+        type="target"
+        position={node.type === "folder" ? Position.Top : Position.Left}
+        id={node.type === "folder" ? "target-top" : "target-left"}
+        style={{
+          background: "#555",
+          width: 8,
+          height: 8,
+          border: "2px solid white",
+        }}
+      />
+
+      {/* Output handles - bottom for folders (to connect to other folders), right for folders (to connect to files) */}
+      {node.type === "folder" && (
+        <>
+          {/* Bottom handle for folder-to-folder connections */}
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="source-bottom"
+            style={{
+              background: "#3b82f6",
+              width: 8,
+              height: 8,
+              border: "2px solid white",
+              left: "50%",
+            }}
+          />
+          {/* Right handle for folder-to-file connections */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="source-right"
+            style={{
+              background: "#10b981",
+              width: 8,
+              height: 8,
+              border: "2px solid white",
+            }}
+          />
+        </>
+      )}
+
       {/* Source indicator for child nodes */}
       {/* {parentNode && (
         <div className="flex items-center space-x-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -85,18 +156,23 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 
       {/* Main node content */}
       <div className="flex items-center space-x-2">
-        <div className={node.type === 'folder' ? 'text-blue-600' : 'text-gray-600'}>
+        <div
+          className={node.type === "folder" ? "text-blue-600" : "text-gray-600"}
+        >
           {getIcon()}
         </div>
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-800 truncate block">
             {node.name}
           </span>
-          {node.type === 'folder' && node.children && node.children.length > 0 && (
-            <span className="text-xs text-gray-500">
-              {node.children.length} item{node.children.length !== 1 ? 's' : ''}
-            </span>
-          )}
+          {node.type === "folder" &&
+            node.children &&
+            node.children.length > 0 && (
+              <span className="text-xs text-gray-500">
+                {node.children.length} item
+                {node.children.length !== 1 ? "s" : ""}
+              </span>
+            )}
         </div>
         {/* {node.type === 'folder' && node.children && node.children.length > 0 && (
           <div className={`text-sm px-2 py-1 rounded-md transition-all duration-300 flex items-center space-x-1 ${
@@ -117,7 +193,9 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 
 const CanvasNew: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { nodes: fileSystemNodes, selectedNodeId }: any = useAppSelector((state) => state.fileSystem);
+  const { nodes: fileSystemNodes, selectedNodeId }: any = useAppSelector(
+    (state) => state.fileSystem
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [contextMenu, setContextMenu] = useState<{
@@ -129,84 +207,119 @@ const CanvasNew: React.FC = () => {
   // Use test data if enabled or if no real data
   const currentData = useMemo(() => {
     if (!fileSystemNodes || fileSystemNodes.length === 0) {
-      console.log('Using test data');
+      console.log("Using test data");
       return;
     }
     return fileSystemNodes;
   }, [fileSystemNodes]);
 
-  const handleFileDoubleClick = useCallback((node: FileSystemNode) => {
-    console.log('Node clicked:', node.name, 'Type:', node.type, 'Expanded:', node.expanded);
-    if (node.type === 'file') {
-      dispatch(openEditor(node));
-    } else if (node.type === 'folder') {
-      console.log('Toggling folder:', node.id);
-      dispatch(toggleFolder(node.id));
-    }
-  }, [dispatch]);
+  const handleFileDoubleClick = useCallback(
+    (node: FileSystemNode) => {
+      console.log(
+        "Node clicked:",
+        node.name,
+        "Type:",
+        node.type,
+        "Expanded:",
+        node.expanded
+      );
+      if (node.type === "file") {
+        dispatch(openEditor(node));
+      } else if (node.type === "folder") {
+        console.log("Toggling folder:", node.id);
+        dispatch(toggleFolder(node.id));
+      }
+    },
+    [dispatch]
+  );
 
-  const handleNodeSelect = useCallback((nodeId: string) => {
-    dispatch(selectNode(nodeId));
-  }, [dispatch]);
+  const handleNodeSelect = useCallback(
+    (nodeId: string) => {
+      dispatch(selectNode(nodeId));
+    },
+    [dispatch]
+  );
 
-  const handleNodeDragStop = useCallback((_: any, node: any) => {
-    // Update the node position in the Redux store when dragging stops
-    dispatch(updateNodePosition({ id: node.id, x: node.position.x, y: node.position.y }));
-  }, [dispatch]);
+  const handleNodeDragStop = useCallback(
+    (_: any, node: any) => {
+      // Update the node position in the Redux store when dragging stops
+      dispatch(
+        updateNodePosition({
+          id: node.id,
+          x: node.position.x,
+          y: node.position.y,
+        })
+      );
+    },
+    [dispatch]
+  );
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, node: FileSystemNode) => {
-    e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      node,
-    });
-  }, []);
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, node: FileSystemNode) => {
+      e.preventDefault();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        node,
+      });
+    },
+    []
+  );
 
   // Node creation handlers
-  const handleCreateNode = useCallback((type: 'file' | 'folder', parentId: string) => {
-    const name = prompt(`Enter ${type} name:`);
-    if (name) {
-      const newNode = {
-        type,
-        name,
-        x: Math.random() * 200 + 100,
-        y: Math.random() * 200 + 100,
-        expanded: type === 'folder' ? false : undefined,
-        content: type === 'file' ? '' : undefined,
-      };
-      dispatch(createNodeAPI({ parentId, node: newNode }));
-    }
-    setContextMenu(null);
-  }, [dispatch]);
+  const handleCreateNode = useCallback(
+    (type: "file" | "folder", parentId: string) => {
+      const name = prompt(`Enter ${type} name:`);
+      if (name) {
+        const newNode = {
+          type,
+          name,
+          x: Math.random() * 200 + 100,
+          y: Math.random() * 200 + 100,
+          expanded: type === "folder" ? false : undefined,
+          content: type === "file" ? "" : undefined,
+        };
+        dispatch(createNodeAPI({ parentId, node: newNode }));
+      }
+      setContextMenu(null);
+    },
+    [dispatch]
+  );
 
-  const handleCreateRootNode = useCallback((type: 'file' | 'folder') => {
-    const name = prompt(`Enter ${type} name:`);
-    if (name) {
-      // Add to test data if we're using test data
+  const handleCreateRootNode = useCallback(
+    (type: "file" | "folder") => {
+      const name = prompt(`Enter ${type} name:`);
+      if (name) {
+        // Add to test data if we're using test data
 
         const newNode = {
           type,
           name,
           x: Math.random() * 200 + 100,
           y: Math.random() * 200 + 100,
-          expanded: type === 'folder' ? false : undefined,
-          content: type === 'file' ? '' : undefined,
+          expanded: type === "folder" ? false : undefined,
+          content: type === "file" ? "" : undefined,
         };
-        const rootNode = fileSystemNodes.find((n: FileSystemNode) => n.id === 'root' || n.name === 'Root');
+        const rootNode = fileSystemNodes.find(
+          (n: FileSystemNode) => n.id === "root" || n.name === "Root"
+        );
         if (rootNode) {
           dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode }));
         }
+      }
+    },
+    [dispatch, fileSystemNodes]
+  );
 
-    }
-  }, [dispatch, fileSystemNodes]);
-
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    if (confirm('Are you sure you want to delete this item?')) {
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      if (confirm("Are you sure you want to delete this item?")) {
         dispatch(deleteNodeAPI(nodeId));
-    }
-    setContextMenu(null);
-  }, [dispatch]);
+      }
+      setContextMenu(null);
+    },
+    [dispatch]
+  );
 
   // Generate nodes and edges - SIMPLIFIED AND GUARANTEED TO WORK
   const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
@@ -214,35 +327,48 @@ const CanvasNew: React.FC = () => {
     const edges: Edge[] = [];
     let nodeCount = 0;
 
-    const processNode = (node: FileSystemNode, parentNode?: FileSystemNode, level = 0) => {
-      console.log('Processing node:', node.name, 'Parent:', parentNode?.name, 'Expanded:', node.expanded);
+    const processNode = (
+      node: FileSystemNode,
+      parentNode?: FileSystemNode,
+      level = 0
+    ) => {
+      console.log(
+        "Processing node:",
+        node.name,
+        "Parent:",
+        parentNode?.name,
+        "Expanded:",
+        node.expanded
+      );
 
       // Create React Flow node
       const reactFlowNode: Node = {
         id: node.id,
-        type: 'default',
+        type: "default",
         position: {
-          x: node.x ?? (100 + level * 300),
-          y: node.y ?? (100 + nodeCount * 80)
+          x: node.x ?? 100 + level * 300,
+          y: node.y ?? 100 + nodeCount * 80,
         },
         data: {
           label: (
-            <CustomNode data={{
-              fileSystemNode: node,
-              onDoubleClick: handleFileDoubleClick,
-              onSelect: handleNodeSelect,
-              onContextMenu: handleContextMenu,
-              isSelected: selectedNodeId === node.id,
-              parentNode: parentNode,
-            }} />
-          )
+            <CustomNode
+              data={{
+                fileSystemNode: node,
+                onDoubleClick: handleFileDoubleClick,
+                onSelect: handleNodeSelect,
+                onContextMenu: handleContextMenu,
+                isSelected: selectedNodeId === node.id,
+                parentNode: parentNode,
+              }}
+            />
+          ),
         },
         draggable: true,
         style: {
-          background: 'transparent',
-          border: 'none',
+          background: "transparent",
+          border: "none",
           padding: 0,
-        }
+        },
       };
 
       nodes.push(reactFlowNode);
@@ -250,38 +376,55 @@ const CanvasNew: React.FC = () => {
 
       // Create edge from parent to this node - ALWAYS CREATE IF PARENT EXISTS
       if (parentNode) {
+        // Determine source and target handles based on child type
+        const sourceHandle =
+          node.type === "folder" ? "source-bottom" : "source-right"; // folder→folder uses bottom, folder→file uses right
+        const targetHandle =
+          node.type === "folder" ? "target-top" : "target-left"; // folders receive from top, files from left
+
         const edge: Edge = {
           id: `edge-${parentNode.id}-${node.id}`,
           source: parentNode.id,
           target: node.id,
-          type: 'default',
+          sourceHandle: sourceHandle,
+          targetHandle: targetHandle,
+          type: "default",
           animated: true,
           style: {
-            stroke: node.type === 'folder' ? '#3b82f6' : '#10b981',
+            stroke: node.type === "folder" ? "#3b82f6" : "#10b981",
             strokeWidth: 4,
-            strokeDasharray: '8,4',
+            strokeDasharray: "8,4",
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: node.type === 'folder' ? '#3b82f6' : '#10b981',
+            color: node.type === "folder" ? "#3b82f6" : "#10b981",
             width: 15,
             height: 15,
           },
-          label: node.type === 'folder' ? '📁' : '📄',
-          labelBgStyle: { fill: 'white', fillOpacity: 0.9 },
-          labelStyle: { fontSize: '12px', fontWeight: 'bold' },
+          label: node.type === "folder" ? "📁" : "📄",
+          labelBgStyle: { fill: "white", fillOpacity: 0.9 },
+          labelStyle: { fontSize: "12px", fontWeight: "bold" },
           pathOptions: {
-            curvature: 0.5
-          }
+            curvature: 0.5,
+          },
         };
         edges.push(edge);
-        console.log('✅ Created edge from', parentNode.name, 'to', node.name);
+        console.log(
+          "✅ Created edge from",
+          parentNode.name,
+          "to",
+          node.name,
+          "using",
+          sourceHandle,
+          "→",
+          targetHandle
+        );
       }
 
       // Process children only if folder is expanded
-      if (node.type === 'folder' && node.children && node.expanded) {
-        console.log('📂 Processing children of expanded folder:', node.name);
-        node.children.forEach(child => {
+      if (node.type === "folder" && node.children && node.expanded) {
+        console.log("📂 Processing children of expanded folder:", node.name);
+        node.children.forEach((child) => {
           processNode(child, node, level + 1);
         });
       }
@@ -292,23 +435,39 @@ const CanvasNew: React.FC = () => {
       processNode(rootNode);
     });
 
-    console.log('🎯 FINAL RESULT: Generated', nodes.length, 'nodes and', edges.length, 'edges');
-    console.log('📊 Edges:', edges.map(e => `${e.source} -> ${e.target}`));
+    console.log(
+      "🎯 FINAL RESULT: Generated",
+      nodes.length,
+      "nodes and",
+      edges.length,
+      "edges"
+    );
+    console.log(
+      "📊 Edges:",
+      edges.map((e) => `${e.source} -> ${e.target}`)
+    );
 
     return { reactFlowNodes: nodes, reactFlowEdges: edges };
   }, [currentData, selectedNodeId, handleFileDoubleClick, handleNodeSelect]);
 
   // Update React Flow when data changes
   useEffect(() => {
-    console.log('🔄 Updating ReactFlow with', reactFlowNodes.length, 'nodes and', reactFlowEdges.length, 'edges');
+    console.log(
+      "🔄 Updating ReactFlow with",
+      reactFlowNodes.length,
+      "nodes and",
+      reactFlowEdges.length,
+      "edges"
+    );
     setNodes(reactFlowNodes);
     setEdges(reactFlowEdges);
   }, [reactFlowNodes, reactFlowEdges, setNodes, setEdges]);
 
   return (
     <div className="w-full h-full">
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
           .react-flow__edge path {
             stroke-width: 4px !important;
             stroke-linecap: round !important;
@@ -337,8 +496,9 @@ const CanvasNew: React.FC = () => {
             padding: 2px 6px !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
           }
-        `
-      }} />
+        `,
+        }}
+      />
 
       <ReactFlow
         nodes={nodes}
@@ -359,11 +519,16 @@ const CanvasNew: React.FC = () => {
         <MiniMap />
 
         {/* Toolbar Panel */}
-        <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-3 m-4">
+        <Panel
+          position="top-left"
+          className="bg-white rounded-lg shadow-lg p-3 m-4"
+        >
           <div className="flex items-center space-x-3">
-            <h3 className="font-semibold text-gray-800 mr-3">File System - WORKING VERSION</h3>
+            <h3 className="font-semibold text-gray-800 mr-3">
+              File System - WORKING VERSION
+            </h3>
             <button
-              onClick={() => handleCreateRootNode('file')}
+              onClick={() => handleCreateRootNode("file")}
               className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm transition-colors"
               title="Create new file"
             >
@@ -371,14 +536,13 @@ const CanvasNew: React.FC = () => {
               <span>File</span>
             </button>
             <button
-              onClick={() => handleCreateRootNode('folder')}
+              onClick={() => handleCreateRootNode("folder")}
               className="flex items-center space-x-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm transition-colors"
               title="Create new folder"
             >
               <FolderPlus size={14} />
               <span>Folder</span>
             </button>
-
           </div>
         </Panel>
 
@@ -394,23 +558,28 @@ const CanvasNew: React.FC = () => {
       {/* Context Menu */}
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+          />
           <div
             className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-2 min-w-[150px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            {contextMenu.node.type === 'folder' && (
+            {contextMenu.node.type === "folder" && (
               <>
                 <button
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 transition-colors"
-                  onClick={() => handleCreateNode('file', contextMenu.node.id)}
+                  onClick={() => handleCreateNode("file", contextMenu.node.id)}
                 >
                   <FilePlus size={16} />
                   <span>New File</span>
                 </button>
                 <button
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 transition-colors"
-                  onClick={() => handleCreateNode('folder', contextMenu.node.id)}
+                  onClick={() =>
+                    handleCreateNode("folder", contextMenu.node.id)
+                  }
                 >
                   <FolderPlus size={16} />
                   <span>New Folder</span>
@@ -418,7 +587,7 @@ const CanvasNew: React.FC = () => {
                 <hr className="my-1" />
               </>
             )}
-            {contextMenu.node.type === 'file' && (
+            {contextMenu.node.type === "file" && (
               <>
                 <button
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 transition-colors"
@@ -433,7 +602,7 @@ const CanvasNew: React.FC = () => {
                 <hr className="my-1" />
               </>
             )}
-            {contextMenu.node.id !== 'root' && (
+            {contextMenu.node.id !== "root" && (
               <button
                 className="w-full px-4 py-2 text-left hover:bg-red-100 text-red-600 flex items-center space-x-2 transition-colors"
                 onClick={() => handleDeleteNode(contextMenu.node.id)}
