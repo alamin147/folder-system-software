@@ -316,8 +316,8 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
             node.children &&
             node.children.length > 0 && (
               <span className="text-xs text-gray-500">
-                {node.children.length} item
-                {node.children.length !== 1 ? "s" : ""}
+                <br />({node.children.length} item
+                {node.children.length !== 1 ? "s" : ""})
               </span>
             )}
         </div>
@@ -418,11 +418,45 @@ const CanvasNew: React.FC = () => {
     (type: "file" | "folder", parentId: string) => {
       const name = prompt(`Enter ${type} name:`);
       if (name) {
+        // Find parent node to get its position
+        const findNodeById = (
+          nodes: FileSystemNode[],
+          id: string
+        ): FileSystemNode | null => {
+          for (const node of nodes) {
+            if (node.id === id) return node;
+            if (node.children) {
+              const found = findNodeById(node.children, id);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        const parentNode = findNodeById(fileSystemNodes, parentId);
+        let newX, newY;
+
+        if (parentNode) {
+          if (type === "folder") {
+            // Position folders under the parent with a gap
+            newX = parentNode.x || 100;
+            newY = (parentNode.y || 100) + 120; // 120px below parent
+          } else {
+            // Position files to the bottom-right of parent
+            newX = (parentNode.x || 100) + 200; // 200px to the right
+            newY = (parentNode.y || 100) + 80; // 80px below parent
+          }
+        } else {
+          // Fallback to random position if parent not found
+          newX = Math.random() * 200 + 100;
+          newY = Math.random() * 200 + 100;
+        }
+
         const newNode = {
           type,
           name,
-          x: Math.random() * 200 + 100,
-          y: Math.random() * 200 + 100,
+          x: newX,
+          y: newY,
           expanded: type === "folder" ? false : undefined,
           content: type === "file" ? "" : undefined,
         };
@@ -430,26 +464,43 @@ const CanvasNew: React.FC = () => {
       }
       setContextMenu(null);
     },
-    [dispatch]
+    [dispatch, fileSystemNodes]
   );
 
   const handleCreateRootNode = useCallback(
     (type: "file" | "folder") => {
       const name = prompt(`Enter ${type} name:`);
       if (name) {
-        // Add to test data if we're using test data
+        const rootNode = fileSystemNodes.find(
+          (n: FileSystemNode) => n.id === "root" || n.name === "Root"
+        );
+
+        let newX, newY;
+        if (rootNode) {
+          if (type === "folder") {
+            // Position folders under the root with a gap
+            newX = rootNode.x || 100;
+            newY = (rootNode.y || 100) + 120; // 120px below root
+          } else {
+            // Position files to the bottom-right of root
+            newX = (rootNode.x || 100) + 200; // 200px to the right
+            newY = (rootNode.y || 100) + 80; // 80px below root
+          }
+        } else {
+          // Fallback positioning if no root found
+          newX = type === "folder" ? 100 : 300;
+          newY = type === "folder" ? 200 : 150;
+        }
 
         const newNode = {
           type,
           name,
-          x: Math.random() * 200 + 100,
-          y: Math.random() * 200 + 100,
+          x: newX,
+          y: newY,
           expanded: type === "folder" ? false : undefined,
           content: type === "file" ? "" : undefined,
         };
-        const rootNode = fileSystemNodes.find(
-          (n: FileSystemNode) => n.id === "root" || n.name === "Root"
-        );
+
         if (rootNode) {
           dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode }));
         }
