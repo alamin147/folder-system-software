@@ -11,9 +11,9 @@ import ReactFlow, {
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Folder, File, FolderOpen, RefreshCw, FolderPlus, FilePlus, Trash2 } from 'lucide-react';
+import { Folder, File, FolderOpen, FolderPlus, FilePlus, Trash2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectNode, toggleFolder, createNodeAPI, deleteNodeAPI } from '../store/fileSystemSlice';
+import { selectNode, toggleFolder, createNodeAPI, deleteNodeAPI, updateNodePosition } from '../store/fileSystemSlice';
 import { openEditor } from '../store/editorSlice';
 import type { FileSystemNode } from '../types/index';
 
@@ -147,6 +147,11 @@ const CanvasNew: React.FC = () => {
 
   const handleNodeSelect = useCallback((nodeId: string) => {
     dispatch(selectNode(nodeId));
+  }, [dispatch]);
+
+  const handleNodeDragStop = useCallback((_: any, node: any) => {
+    // Update the node position in the Redux store when dragging stops
+    dispatch(updateNodePosition({ id: node.id, x: node.position.x, y: node.position.y }));
   }, [dispatch]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, node: FileSystemNode) => {
@@ -321,6 +326,7 @@ const CanvasNew: React.FC = () => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={handleNodeDragStop}
         connectionMode={ConnectionMode.Loose}
         fitView
         className="bg-gray-50"
@@ -353,17 +359,17 @@ const CanvasNew: React.FC = () => {
               <FolderPlus size={14} />
               <span>Folder</span>
             </button>
-           
+
           </div>
         </Panel>
 
         {/* Status Panel */}
-        <Panel position="bottom-right" className="bg-white rounded-lg shadow-lg p-2 m-4">
+        {/* <Panel position="bottom-right" className="bg-white rounded-lg shadow-lg p-2 m-4">
           <div className="text-xs text-gray-600">
-            <div>📊 {nodes.length} nodes, {edges.length} edges</div>
-            <div>🔗 Connections: {edges.length > 0 ? 'VISIBLE ✅' : 'NONE ❌'}</div>
+            <div> {nodes.length} nodes, {edges.length} edges</div>
+            <div> Connections: {edges.length > 0 ? 'VISIBLE ' : 'NONE '}</div>
           </div>
-        </Panel>
+        </Panel> */}
       </ReactFlow>
 
       {/* Context Menu */}
