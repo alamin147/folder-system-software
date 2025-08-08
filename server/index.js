@@ -1125,30 +1125,31 @@ const startServer = async () => {
   await connectDB();
 
   server.listen(PORT, () => {
-    console.log('\n🚀 Visual File System Explorer Server');
-    console.log('=====================================');
-    console.log(`📍 Server running on port ${PORT}`);
-    console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`📊 Statistics: http://localhost:${PORT}/api/stats`);
-    console.log(`🔍 Search: http://localhost:${PORT}/api/search?q=<query>`);
-    console.log(`🗄️  Database: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⚠️  Mock Mode'}`);
-    console.log(`🔄 Real-time: ✅ Socket.IO enabled`);
-    console.log('\n📚 API Endpoints:');
-    console.log('  GET    /api/tree                 - Get file system tree');
-    console.log('  GET    /api/file/:id             - Get file content');
-    console.log('  POST   /api/file/:id             - Save file content');
-    console.log('  POST   /api/tree                 - Save entire tree');
-    console.log('  POST   /api/node                 - Create new node');
-    console.log('  DELETE /api/node/:id             - Delete node');
-    console.log('  PATCH  /api/node/:id/position    - Update node position');
-    console.log('  GET    /api/search               - Search nodes');
-    console.log('  GET    /api/stats                - Get statistics');
-    console.log('  GET    /api/health               - Health check');
-    console.log('\n💡 Tips:');
-    console.log('  - Set MONGODB_URI to enable database persistence');
-    console.log('  - Use the frontend at http://localhost:5173');
-    console.log('  - Check logs for real-time updates');
-    console.log('=====================================\n');
+    // console.log('\n Visual File System Explorer Server');
+    // console.log('=====================================');
+    // console.log(` Server running on port ${PORT}`);
+    // console.log(` Health check: http://localhost:${PORT}/api/health`);
+    // console.log(` Statistics: http://localhost:${PORT}/api/stats`);
+    // console.log(` Search: http://localhost:${PORT}/api/search?q=<query>`);
+    // console.log(`  Database: ${mongoose.connection.readyState === 1 ? ' Connected' : '  Mock Mode'}`);
+    // console.log(` Real-time:  Socket.IO enabled`);
+    // console.log('\n API Endpoints:');
+    // console.log('  GET    /api/tree                 - Get file system tree');
+    // console.log('  GET    /api/file/:id             - Get file content');
+    // console.log('  POST   /api/file/:id             - Save file content');
+    // console.log('  POST   /api/tree                 - Save entire tree');
+    // console.log('  POST   /api/node                 - Create new node');
+    // console.log('  DELETE /api/node/:id             - Delete node');
+    // console.log('  PATCH  /api/node/:id/position    - Update node position');
+    // console.log('  GET    /api/search               - Search nodes');
+    // console.log('  GET    /api/stats                - Get statistics');
+    // console.log('  GET    /api/health               - Health check');
+    // console.log('\n Tips:');
+    // console.log('  - Set MONGODB_URI to enable database persistence');
+    // console.log('  - Use the frontend at http://localhost:5173');
+    // console.log('  - Check logs for real-time updates');
+    // console.log('=====================================\n');
+    console.log("server running on",PORT);
   });
 
   // Graceful shutdown
