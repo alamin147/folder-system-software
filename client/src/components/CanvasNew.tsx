@@ -28,7 +28,7 @@ interface CustomNodeData {
 }
 
 const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
-  const { fileSystemNode: node, onDoubleClick, onSelect, onContextMenu, isSelected, parentNode } = data;
+  const { fileSystemNode: node, onDoubleClick, onSelect, onContextMenu, isSelected } = data;
 
   const handleClick = useCallback(() => {
     onSelect(node.id);
@@ -254,7 +254,7 @@ const CanvasNew: React.FC = () => {
           id: `edge-${parentNode.id}-${node.id}`,
           source: parentNode.id,
           target: node.id,
-          type: 'straight',
+          type: 'default',
           animated: true,
           style: {
             stroke: node.type === 'folder' ? '#3b82f6' : '#10b981',
@@ -269,7 +269,10 @@ const CanvasNew: React.FC = () => {
           },
           label: node.type === 'folder' ? '📁' : '📄',
           labelBgStyle: { fill: 'white', fillOpacity: 0.9 },
-          labelStyle: { fontSize: '12px', fontWeight: 'bold' }
+          labelStyle: { fontSize: '12px', fontWeight: 'bold' },
+          pathOptions: {
+            curvature: 0.5
+          }
         };
         edges.push(edge);
         console.log('✅ Created edge from', parentNode.name, 'to', node.name);
@@ -309,14 +312,30 @@ const CanvasNew: React.FC = () => {
           .react-flow__edge path {
             stroke-width: 4px !important;
             stroke-linecap: round !important;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
           }
           .react-flow__edge.animated path {
             stroke-dasharray: 8 4 !important;
             animation: dash-animation 3s linear infinite !important;
           }
+          .react-flow__edge-path {
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+          }
+          .react-flow__edge.react-flow__edge-smoothstep path {
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+          }
           @keyframes dash-animation {
             0% { stroke-dashoffset: 0; }
             100% { stroke-dashoffset: 24; }
+          }
+          .react-flow__edge-label {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(4px) !important;
+            border-radius: 6px !important;
+            padding: 2px 6px !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
           }
         `
       }} />
