@@ -714,7 +714,20 @@ const CanvasNew: React.FC = () => {
       >
         <Background color="#e5e7eb" gap={20} />
         <Controls />
-        <MiniMap />
+        <MiniMap
+          nodeColor={(node) => {
+            const data = node.data?.label?.props?.data;
+            if (data?.fileSystemNode?.type === "folder") {
+              return data.fileSystemNode.expanded ? "#3b82f6" : "#6b7280";
+            }
+            return "#10b981";
+          }}
+          maskColor="rgba(0, 0, 0, 0.1)"
+          pannable={true}
+          zoomable={true}
+          inversePan={false}
+          position="bottom-right"
+        />
 
         {/* Toolbar Panel */}
         <Panel
