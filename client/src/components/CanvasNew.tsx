@@ -115,72 +115,11 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
   );
 };
 
-// Simple test function to create demo structure that WILL SHOW CONNECTIONS
-const createTestData = (): FileSystemNode[] => {
-  return [
-    {
-      id: 'root',
-      name: 'Root',
-      type: 'folder',
-      expanded: true,
-      x: 50,
-      y: 50,
-      children: [
-        {
-          id: 'folder1',
-          name: 'Documents',
-          type: 'folder',
-          expanded: true,
-          x: 400,
-          y: 50,
-          children: [
-            {
-              id: 'file1',
-              name: 'readme.txt',
-              type: 'file',
-              x: 750,
-              y: 20,
-              content: 'Hello world'
-            },
-            {
-              id: 'file2',
-              name: 'notes.md',
-              type: 'file',
-              x: 750,
-              y: 120,
-              content: '# Notes'
-            }
-          ]
-        },
-        {
-          id: 'folder2',
-          name: 'Images',
-          type: 'folder',
-          expanded: true,
-          x: 400,
-          y: 200,
-          children: [
-            {
-              id: 'file3',
-              name: 'photo.jpg',
-              type: 'file',
-              x: 750,
-              y: 200,
-              content: ''
-            }
-          ]
-        }
-      ]
-    }
-  ];
-};
-
 const CanvasNew: React.FC = () => {
   const dispatch = useAppDispatch();
   const { nodes: fileSystemNodes, selectedNodeId }: any = useAppSelector((state) => state.fileSystem);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [useTestData, setUseTestData] = useState(true); // Start with test data
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -189,12 +128,12 @@ const CanvasNew: React.FC = () => {
 
   // Use test data if enabled or if no real data
   const currentData = useMemo(() => {
-    if (useTestData || !fileSystemNodes || fileSystemNodes.length === 0) {
+    if (!fileSystemNodes || fileSystemNodes.length === 0) {
       console.log('Using test data');
-      return createTestData();
+      return;
     }
     return fileSystemNodes;
-  }, [fileSystemNodes, useTestData]);
+  }, [fileSystemNodes]);
 
   const handleFileDoubleClick = useCallback((node: FileSystemNode) => {
     console.log('Node clicked:', node.name, 'Type:', node.type, 'Expanded:', node.expanded);
@@ -240,10 +179,7 @@ const CanvasNew: React.FC = () => {
     const name = prompt(`Enter ${type} name:`);
     if (name) {
       // Add to test data if we're using test data
-      if (useTestData) {
-        // For now, just show alert - in real app would update state
-        alert(`Created ${type}: ${name} (This is test data, use real data for persistence)`);
-      } else {
+
         const newNode = {
           type,
           name,
@@ -256,20 +192,16 @@ const CanvasNew: React.FC = () => {
         if (rootNode) {
           dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode }));
         }
-      }
+
     }
-  }, [dispatch, fileSystemNodes, useTestData]);
+  }, [dispatch, fileSystemNodes]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     if (confirm('Are you sure you want to delete this item?')) {
-      if (useTestData) {
-        alert('Delete functionality disabled in test mode');
-      } else {
         dispatch(deleteNodeAPI(nodeId));
-      }
     }
     setContextMenu(null);
-  }, [dispatch, useTestData]);
+  }, [dispatch]);
 
   // Generate nodes and edges - SIMPLIFIED AND GUARANTEED TO WORK
   const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
@@ -348,7 +280,7 @@ const CanvasNew: React.FC = () => {
     };
 
     // Process all root nodes
-    currentData.forEach((rootNode: FileSystemNode) => {
+    currentData?.forEach((rootNode: FileSystemNode) => {
       processNode(rootNode);
     });
 
@@ -421,17 +353,7 @@ const CanvasNew: React.FC = () => {
               <FolderPlus size={14} />
               <span>Folder</span>
             </button>
-            <button
-              onClick={() => setUseTestData(!useTestData)}
-              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors ${
-                useTestData
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-600 text-white hover:bg-gray-700'
-              }`}
-            >
-              <RefreshCw size={14} />
-              <span>{useTestData ? 'TEST DATA (CONNECTIONS VISIBLE)' : 'Use Test Data'}</span>
-            </button>
+           
           </div>
         </Panel>
 
