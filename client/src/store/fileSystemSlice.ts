@@ -6,9 +6,9 @@ import { fileSystemAPI } from '../services/api';
 // Async thunks for API calls
 export const fetchFileSystemTree = createAsyncThunk(
   'fileSystem/fetchTree',
-  async () => {
-    const tree = await fileSystemAPI.getTree();
-    return tree;
+  async (projectId: string) => {
+    const tree = await fileSystemAPI.getProjectTree(projectId);
+    return { tree, projectId };
   }
 );
 
@@ -22,9 +22,9 @@ export const saveFileContent = createAsyncThunk(
 
 export const saveFileSystemTree = createAsyncThunk(
   'fileSystem/saveTree',
-  async (nodes: FileSystemNode[]) => {
-    await fileSystemAPI.saveTree(nodes);
-    return nodes;
+  async ({ nodes, projectId }: { nodes: FileSystemNode[]; projectId: string }) => {
+    await fileSystemAPI.saveProjectTree(nodes, projectId);
+    return { nodes, projectId };
   }
 );
 
@@ -38,15 +38,16 @@ export const updateNodePositionAPI = createAsyncThunk(
 
 export const createNodeAPI = createAsyncThunk(
   'fileSystem/createNode',
-  async ({ parentId, node }: { parentId: string; node: Omit<FileSystemNode, 'id' | 'parentId'> }) => {
+  async ({ parentId, node, projectId }: { parentId: string; node: Omit<FileSystemNode, 'id' | 'parentId'>; projectId: string }) => {
     const newNode = {
       ...node,
       id: `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       parentId,
+      projectId,
       x: (node.x || 0) + Math.random() * 100,
       y: (node.y || 0) + Math.random() * 100,
     };
-    await fileSystemAPI.createNode(newNode);
+    await fileSystemAPI.createProjectNode(newNode, projectId);
     return { parentId, node: newNode };
   }
 );
@@ -62,6 +63,7 @@ export const deleteNodeAPI = createAsyncThunk(
 const initialState: FileSystemState = {
   nodes: [],
   selectedNodeId: null,
+  currentProjectId: null,
   isEditorOpen: false,
   editingFile: null,
   loading: false,
@@ -74,6 +76,13 @@ const fileSystemSlice = createSlice({
   reducers: {
     selectNode: (state, action: PayloadAction<string>) => {
       state.selectedNodeId = action.payload;
+    },
+    setCurrentProject: (state, action: PayloadAction<string | null>) => {
+      state.currentProjectId = action.payload;
+      // Clear nodes when switching projects
+      if (action.payload === null) {
+        state.nodes = [];
+      }
     },
     toggleFolder: (state, action: PayloadAction<string>) => {
       const toggleNodeRecursive = (nodes: FileSystemNode[]): void => {
@@ -161,7 +170,8 @@ const fileSystemSlice = createSlice({
       })
       .addCase(fetchFileSystemTree.fulfilled, (state, action) => {
         state.loading = false;
-        state.nodes = action.payload;
+        state.nodes = action.payload.tree;
+        state.currentProjectId = action.payload.projectId;
       })
       .addCase(fetchFileSystemTree.rejected, (state, action) => {
         state.loading = false;
@@ -243,5 +253,5 @@ const fileSystemSlice = createSlice({
   },
 });
 
-export const { selectNode, toggleFolder, updateNodePosition, updateFileContent, addNode, deleteNode, clearError } = fileSystemSlice.actions;
+export const { selectNode, setCurrentProject, toggleFolder, updateNodePosition, updateFileContent, addNode, deleteNode, clearError } = fileSystemSlice.actions;
 export default fileSystemSlice.reducer;
