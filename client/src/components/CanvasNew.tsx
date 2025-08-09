@@ -48,6 +48,8 @@ import {
   createNodeAPI,
   deleteNodeAPI,
   updateNodePosition,
+  setCurrentProject,
+  fetchFileSystemTree,
 } from "../store/fileSystemSlice";
 import { openEditor } from "../store/editorSlice";
 import type { FileSystemNode } from "../types/index";
@@ -338,7 +340,7 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
   );
 };
 
-const CanvasNew: React.FC = () => {
+const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
   const dispatch = useAppDispatch();
   const { nodes: fileSystemNodes, selectedNodeId }: any = useAppSelector(
     (state) => state.fileSystem
@@ -350,6 +352,16 @@ const CanvasNew: React.FC = () => {
     y: number;
     node: FileSystemNode;
   } | null>(null);
+
+  // Load project data when projectId changes
+  useEffect(() => {
+    if (projectId) {
+      dispatch(setCurrentProject(projectId));
+      dispatch(fetchFileSystemTree(projectId));
+    } else {
+      dispatch(setCurrentProject(null));
+    }
+  }, [projectId, dispatch]);
 
   // Use test data if enabled or if no real data
   const currentData = useMemo(() => {
@@ -460,11 +472,13 @@ const CanvasNew: React.FC = () => {
           expanded: type === "folder" ? false : undefined,
           content: type === "file" ? "" : undefined,
         };
-        dispatch(createNodeAPI({ parentId, node: newNode }));
+        if (projectId) {
+          dispatch(createNodeAPI({ parentId, node: newNode, projectId }));
+        }
       }
       setContextMenu(null);
     },
-    [dispatch, fileSystemNodes]
+    [dispatch, fileSystemNodes, projectId]
   );
 
   const handleCreateRootNode = useCallback(
@@ -501,12 +515,12 @@ const CanvasNew: React.FC = () => {
           content: type === "file" ? "" : undefined,
         };
 
-        if (rootNode) {
-          dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode }));
+        if (rootNode && projectId) {
+          dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode, projectId }));
         }
       }
     },
-    [dispatch, fileSystemNodes]
+    [dispatch, fileSystemNodes, projectId]
   );
 
   const handleDeleteNode = useCallback(
