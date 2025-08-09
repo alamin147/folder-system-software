@@ -59,9 +59,28 @@ const connectDB = async () => {
   }
 };
 
-// Enhanced File System Node Schema
-const fileSystemNodeSchema = new mongoose.Schema({
+// Enhanced Project Schema
+const projectSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  description: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  owner: { type: String, default: 'default' }, // For future user management
+  isActive: { type: Boolean, default: true },
+  settings: {
+    theme: { type: String, default: 'light' },
+    layout: { type: String, default: 'canvas' },
+    autoSave: { type: Boolean, default: true }
+  }
+});
+
+const Project = mongoose.model('Project', projectSchema);
+
+// Enhanced File System Node Schema with project reference
+const fileSystemNodeSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  projectId: { type: String, required: true }, // Reference to project
   type: { type: String, enum: ['file', 'folder'], required: true },
   name: { type: String, required: true },
   content: { type: String, default: '' }, // Only for files
@@ -81,278 +100,721 @@ const fileSystemNodeSchema = new mongoose.Schema({
   }
 });
 
-// Add indexes for better performance
-fileSystemNodeSchema.index({ parentId: 1 });
-fileSystemNodeSchema.index({ type: 1 });
-fileSystemNodeSchema.index({ name: 1, parentId: 1 });
+// Add compound indexes for better performance
+fileSystemNodeSchema.index({ projectId: 1, parentId: 1 });
+fileSystemNodeSchema.index({ projectId: 1, type: 1 });
+fileSystemNodeSchema.index({ projectId: 1, name: 1, parentId: 1 });
+fileSystemNodeSchema.index({ id: 1, projectId: 1 }, { unique: true });
 
 const FileSystemNode = mongoose.model('FileSystemNode', fileSystemNodeSchema);
 
-// Initialize default file system
+// Initialize default projects and file system
 const initializeDefaultFileSystem = async () => {
-  const defaultNodes = [
-    {
-      id: 'root',
-      type: 'folder',
-      name: 'Home',
-      parentId: null,
-      x: 100,
-      y: 100,
-      expanded: true
-    },
-    {
-      id: 'folder1',
-      type: 'folder',
-      name: 'Project A',
-      parentId: 'root',
-      x: 400,
-      y: 200,
-      expanded: false
-    },
-    {
-      id: 'file1',
-      type: 'file',
-      name: 'index.js',
-      content: `// Welcome to the Visual File System Explorer!
-console.log('Hello World!');
+  try {
+    // Create default project
+    const defaultProject = await Project.findOneAndUpdate(
+      { id: 'default-project' },
+      {
+        id: 'default-project',
+        name: 'My First Project',
+        description: 'Welcome to your first project! Start building your file hierarchy here.',
+        owner: 'default',
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
 
-// This is a sample JavaScript file
-function greet(name) {
-  return \`Hello, \${name}! Welcome to our file system.\`;
+    // Create demo project
+    const demoProject = await Project.findOneAndUpdate(
+      { id: 'demo-project' },
+      {
+        id: 'demo-project',
+        name: 'Demo Project',
+        description: 'A sample project showcasing the file system capabilities.',
+        owner: 'default',
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    // Create default nodes for default project
+    const defaultNodes = [
+      {
+        id: 'root-default',
+        projectId: 'default-project',
+        type: 'folder',
+        name: 'Project Root',
+        parentId: null,
+        x: 100,
+        y: 100,
+        expanded: true
+      }
+    ];
+
+    // Create demo nodes for demo project
+    const demoNodes = [
+      {
+        id: 'root-demo',
+        projectId: 'demo-project',
+        type: 'folder',
+        name: 'Demo Root',
+        parentId: null,
+        x: 100,
+        y: 100,
+        expanded: true
+      },
+      {
+        id: 'src-folder',
+        projectId: 'demo-project',
+        type: 'folder',
+        name: 'src',
+        parentId: 'root-demo',
+        x: 100,
+        y: 220,
+        expanded: false
+      },
+      {
+        id: 'components-folder',
+        projectId: 'demo-project',
+        type: 'folder',
+        name: 'components',
+        parentId: 'src-folder',
+        x: 100,
+        y: 340,
+        expanded: false
+      },
+      {
+        id: 'app-js',
+        projectId: 'demo-project',
+        type: 'file',
+        name: 'App.js',
+        content: `import React from 'react';
+import './App.css';
+
+function App() {
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>Welcome to File System Explorer!</h1>
+        <p>Build and organize your projects visually.</p>
+      </header>
+    </div>
+  );
 }
 
-const message = greet('Developer');
-console.log(message);
+export default App;`,
+        parentId: 'src-folder',
+        x: 300,
+        y: 260,
+        size: 285,
+        metadata: {
+          language: 'javascript',
+          lineCount: 14
+        }
+      },
+      {
+        id: 'readme-md',
+        projectId: 'demo-project',
+        type: 'file',
+        name: 'README.md',
+        content: `# Demo Project
 
-// You can edit this file and save changes
-// Try adding your own code here!`,
-      parentId: 'folder1',
-      x: 700,
-      y: 300,
-      size: 285,
-      metadata: {
-        language: 'javascript',
-        lineCount: 12
-      }
-    },
-    {
-      id: 'file2',
-      type: 'file',
-      name: 'README.md',
-      content: `# Project A
-
-Welcome to **Project A**! This is a demonstration of our Visual File System Explorer.
+This is a demonstration project showing the capabilities of our Visual File System Explorer.
 
 ## Features
 
-- 🎨 **Visual Canvas**: Drag and drop files and folders on an interactive canvas
+- 🎨 **Visual Canvas**: Interactive drag-and-drop interface
 - 📝 **Code Editor**: Built-in Monaco Editor with syntax highlighting
 - 🗂️ **File Management**: Create, edit, delete files and folders
-- 💾 **Persistence**: Save your changes to MongoDB or use mock data
-- 🎯 **Real-time**: Live updates across the application
+- 🔄 **Real-time Sync**: Changes saved automatically
+- 📱 **Multi-Project**: Manage multiple projects seamlessly
 
 ## Getting Started
 
-1. Double-click any file to open it in the editor
-2. Right-click folders to create new files or folders
-3. Drag nodes around to organize your workspace
-4. Use Ctrl+S to save your changes
+1. Explore the existing files and folders
+2. Right-click to create new items
+3. Double-click files to edit them
+4. Drag nodes to reorganize your structure
 
-## Supported File Types
-
-- JavaScript (.js, .jsx)
-- TypeScript (.ts, .tsx)
-- Markdown (.md)
-- JSON (.json)
-- CSS (.css)
-- HTML (.html)
-- Python (.py)
-- And many more!
-
-Enjoy exploring! 🚀`,
-      parentId: 'folder1',
-      x: 700,
-      y: 450,
-      size: 756,
-      metadata: {
-        language: 'markdown',
-        lineCount: 29
+Happy coding! 🚀`,
+        parentId: 'root-demo',
+        x: 300,
+        y: 140,
+        size: 512,
+        metadata: {
+          language: 'markdown',
+          lineCount: 19
+        }
       }
-    },
-    {
-      id: 'file3',
-      type: 'file',
-      name: 'config.json',
-      content: `{
-  "name": "visual-file-system-explorer",
-  "version": "1.0.0",
-  "description": "A beautiful canvas-based file system explorer",
-  "features": [
-    "Visual Canvas",
-    "Monaco Editor",
-    "File Management",
-    "Real-time Updates",
-    "Drag & Drop"
-  ],
-  "settings": {
-    "theme": "dark",
-    "autoSave": true,
-    "autoSaveInterval": 30000,
-    "showMinimap": true,
-    "fontSize": 14
-  },
-  "supportedLanguages": [
-    "javascript",
-    "typescript",
-    "markdown",
-    "json",
-    "css",
-    "html",
-    "python"
-  ]
-}`,
-      parentId: 'root',
-      x: 400,
-      y: 350,
-      size: 456,
-      metadata: {
-        language: 'json',
-        lineCount: 23
-      }
+    ];
+
+    // Insert nodes for both projects
+    for (const nodeData of [...defaultNodes, ...demoNodes]) {
+      await FileSystemNode.findOneAndUpdate(
+        { id: nodeData.id, projectId: nodeData.projectId },
+        { ...nodeData, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
     }
-  ];
 
-  try {
-    await FileSystemNode.insertMany(defaultNodes);
-    console.log('✅ Default file system initialized successfully');
+    console.log('✅ Default projects and file systems initialized');
   } catch (error) {
-    console.error('❌ Error initializing default file system:', error.message);
+    console.error('❌ Error initializing default file system:', error);
   }
 };
 
-// Enhanced mock data for when database is not available
-const mockFileSystemData = {
-  "id": "root",
-  "type": "folder",
-  "name": "Home",
-  "x": 100,
-  "y": 100,
-  "expanded": true,
-  "children": [
-    {
-      "id": "folder1",
-      "type": "folder",
-      "name": "Project A",
-      "parentId": "root",
-      "x": 400,
-      "y": 200,
-      "expanded": false,
-      "children": [
+// Project API Routes
+
+// Get all projects
+app.get('/api/projects', async (req, res) => {
+  try {
+    if (process.env.MONGODB_URI) {
+      const projects = await Project.find({ isActive: true }).sort({ updatedAt: -1 });
+      res.json(projects);
+    } else {
+      // Mock data for projects
+      const mockProjects = [
         {
-          "id": "file1",
-          "type": "file",
-          "name": "index.js",
-          "content": `// Welcome to the Visual File System Explorer!
-console.log('Hello World!');
-
-// This is a sample JavaScript file
-function greet(name) {
-  return \`Hello, \${name}! Welcome to our file system.\`;
-}
-
-const message = greet('Developer');
-console.log(message);
-
-// You can edit this file and save changes
-// Try adding your own code here!`,
-          "parentId": "folder1",
-          "x": 700,
-          "y": 300,
-          "size": 285,
-          "lastModified": new Date().toISOString()
+          id: 'default-project',
+          name: 'My First Project',
+          description: 'Welcome to your first project! Start building your file hierarchy here.',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          owner: 'default',
+          isActive: true,
+          settings: { theme: 'light', layout: 'canvas', autoSave: true }
         },
         {
-          "id": "file2",
-          "type": "file",
-          "name": "README.md",
-          "content": `# Project A
+          id: 'demo-project',
+          name: 'Demo Project',
+          description: 'A sample project showcasing the file system capabilities.',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          owner: 'default',
+          isActive: true,
+          settings: { theme: 'light', layout: 'canvas', autoSave: true }
+        }
+      ];
+      res.json(mockProjects);
+    }
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ error: 'Failed to fetch projects' });
+  }
+});
 
-Welcome to **Project A**! This is a demonstration of our Visual File System Explorer.
+// Create new project
+app.post('/api/projects', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const projectId = `project-${Date.now()}`;
+
+    if (process.env.MONGODB_URI) {
+      const project = new Project({
+        id: projectId,
+        name,
+        description,
+        owner: 'default'
+      });
+      await project.save();
+
+      // Create root folder for the project
+      const rootNode = new FileSystemNode({
+        id: `root-${projectId}`,
+        projectId: projectId,
+        type: 'folder',
+        name: 'Project Root',
+        parentId: null,
+        x: 100,
+        y: 100,
+        expanded: true
+      });
+      await rootNode.save();
+
+      res.status(201).json(project);
+    } else {
+      // Mock response
+      const project = {
+        id: projectId,
+        name,
+        description,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        owner: 'default',
+        isActive: true,
+        settings: { theme: 'light', layout: 'canvas', autoSave: true }
+      };
+      res.status(201).json(project);
+    }
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ error: 'Failed to create project' });
+  }
+});
+
+// Update project
+app.put('/api/projects/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const updateData = req.body;
+
+    if (process.env.MONGODB_URI) {
+      const project = await Project.findOneAndUpdate(
+        { id: projectId },
+        { ...updateData, updatedAt: new Date() },
+        { new: true }
+      );
+
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      res.json(project);
+    } else {
+      res.json({ id: projectId, ...updateData, updatedAt: new Date() });
+    }
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+// Delete project
+app.delete('/api/projects/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (process.env.MONGODB_URI) {
+      // Mark project as inactive instead of deleting
+      await Project.findOneAndUpdate(
+        { id: projectId },
+        { isActive: false, updatedAt: new Date() }
+      );
+
+      // Optionally also delete all nodes in the project
+      await FileSystemNode.deleteMany({ projectId });
+
+      res.json({ message: 'Project deleted successfully' });
+    } else {
+      res.json({ message: 'Project deleted successfully' });
+    }
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
+// Enhanced File System API Routes (with project support)
+
+// Get file system nodes for a specific project
+app.get('/api/projects/:projectId/nodes', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (process.env.MONGODB_URI) {
+      const nodes = await FileSystemNode.find({ projectId }).sort({ createdAt: 1 });
+      const transformedNodes = buildHierarchy(nodes);
+      res.json(transformedNodes);
+    } else {
+      // Mock data for demo project
+      if (projectId === 'demo-project') {
+        const mockNodes = [
+          {
+            id: 'root-demo',
+            projectId: 'demo-project',
+            type: 'folder',
+            name: 'Demo Root',
+            x: 100,
+            y: 100,
+            expanded: true,
+            children: [
+              {
+                id: 'src-folder',
+                projectId: 'demo-project',
+                type: 'folder',
+                name: 'src',
+                parentId: 'root-demo',
+                x: 100,
+                y: 220,
+                expanded: false,
+                children: [
+                  {
+                    id: 'app-js',
+                    projectId: 'demo-project',
+                    type: 'file',
+                    name: 'App.js',
+                    content: `import React from 'react';
+import './App.css';
+
+function App() {
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>Welcome to File System Explorer!</h1>
+        <p>Build and organize your projects visually.</p>
+      </header>
+    </div>
+  );
+}
+
+export default App;`,
+                    parentId: 'src-folder',
+                    x: 300,
+                    y: 260,
+                    size: 285,
+                    lastModified: new Date().toISOString()
+                  }
+                ]
+              },
+              {
+                id: 'readme-md',
+                projectId: 'demo-project',
+                type: 'file',
+                name: 'README.md',
+                content: `# Demo Project
+
+This is a demonstration project showing the capabilities of our Visual File System Explorer.
 
 ## Features
 
-- 🎨 **Visual Canvas**: Drag and drop files and folders on an interactive canvas
+- 🎨 **Visual Canvas**: Interactive drag-and-drop interface
 - 📝 **Code Editor**: Built-in Monaco Editor with syntax highlighting
 - 🗂️ **File Management**: Create, edit, delete files and folders
-- 💾 **Persistence**: Save your changes to MongoDB or use mock data
-- 🎯 **Real-time**: Live updates across the application
+- 🔄 **Real-time Sync**: Changes saved automatically
+- 📱 **Multi-Project**: Manage multiple projects seamlessly
 
 ## Getting Started
 
-1. Double-click any file to open it in the editor
-2. Right-click folders to create new files or folders
-3. Drag nodes around to organize your workspace
-4. Use Ctrl+S to save your changes
+1. Explore the existing files and folders
+2. Right-click to create new items
+3. Double-click files to edit them
+4. Drag nodes to reorganize your structure
 
-## Supported File Types
-
-- JavaScript (.js, .jsx)
-- TypeScript (.ts, .tsx)
-- Markdown (.md)
-- JSON (.json)
-- CSS (.css)
-- HTML (.html)
-- Python (.py)
-- And many more!
-
-Enjoy exploring! 🚀`,
-          "parentId": "folder1",
-          "x": 700,
-          "y": 450,
-          "size": 756,
-          "lastModified": new Date().toISOString()
-        }
-      ]
-    },
-    {
-      "id": "file3",
-      "type": "file",
-      "name": "config.json",
-      "content": `{
-  "name": "visual-file-system-explorer",
-  "version": "1.0.0",
-  "description": "A beautiful canvas-based file system explorer",
-  "features": [
-    "Visual Canvas",
-    "Monaco Editor",
-    "File Management",
-    "Real-time Updates",
-    "Drag & Drop"
-  ],
-  "settings": {
-    "theme": "dark",
-    "autoSave": true,
-    "autoSaveInterval": 30000,
-    "showMinimap": true,
-    "fontSize": 14
-  },
-  "supportedLanguages": [
-    "javascript",
-    "typescript",
-    "markdown",
-    "json",
-    "css",
-    "html",
-    "python"
-  ]
-}`,
-      "parentId": "root",
-      "x": 400,
-      "y": 350,
-      "size": 456,
-      "lastModified": new Date().toISOString()
+Happy coding! 🚀`,
+                parentId: 'root-demo',
+                x: 300,
+                y: 140,
+                size: 512,
+                lastModified: new Date().toISOString()
+              }
+            ]
+          }
+        ];
+        res.json(mockNodes);
+      } else {
+        // Default project - empty root
+        res.json([{
+          id: `root-${projectId}`,
+          projectId: projectId,
+          type: 'folder',
+          name: 'Project Root',
+          x: 100,
+          y: 100,
+          expanded: true,
+          children: []
+        }]);
+      }
     }
-  ]
+  } catch (error) {
+    console.error('Error fetching file system nodes:', error);
+    res.status(500).json({ error: 'Failed to fetch file system nodes' });
+  }
+});
+
+// Create node for a specific project
+app.post('/api/projects/:projectId/node', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const nodeData = req.body;
+
+    if (process.env.MONGODB_URI) {
+      // Add project reference and timestamps
+      const newNode = new FileSystemNode({
+        ...nodeData,
+        projectId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      await newNode.save();
+      res.status(201).json(newNode);
+    } else {
+      // Mock response for development
+      const mockNode = {
+        ...nodeData,
+        projectId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      res.status(201).json(mockNode);
+    }
+  } catch (error) {
+    console.error('Error creating project node:', error);
+    res.status(500).json({ error: 'Failed to create node' });
+  }
+});
+
+// Save tree structure for a specific project
+app.post('/api/projects/:projectId/tree', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { nodes } = req.body;
+
+    if (!Array.isArray(nodes)) {
+      return res.status(400).json({ error: 'Nodes must be an array' });
+    }
+
+    if (process.env.MONGODB_URI) {
+      // Start transaction for data integrity
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Clear existing nodes for this project and save new ones
+        await FileSystemNode.deleteMany({ projectId }, { session });
+
+        const flatNodes = [];
+        const flattenTree = (treeNodes, parentId = null) => {
+          treeNodes.forEach(node => {
+            const { children, ...nodeData } = node;
+
+            // Calculate metadata for files
+            if (nodeData.type === 'file') {
+              nodeData.size = calculateFileSize(nodeData.content || '');
+              nodeData.metadata = {
+                ...nodeData.metadata,
+                lineCount: countLines(nodeData.content || ''),
+                language: getLanguageFromExtension(nodeData.name)
+              };
+            }
+
+            flatNodes.push({
+              ...nodeData,
+              parentId,
+              projectId,
+              lastModified: new Date(),
+              updatedAt: new Date()
+            });
+
+            if (children && children.length > 0) {
+              flattenTree(children, node.id);
+            }
+          });
+        };
+
+        flattenTree(nodes);
+        await FileSystemNode.insertMany(flatNodes, { session });
+
+        await session.commitTransaction();
+
+        // Emit real-time update
+        io.emit('tree-updated', { projectId, nodeCount: flatNodes.length });
+
+        res.json({
+          message: 'Project tree saved successfully',
+          projectId,
+          stats: {
+            totalNodes: flatNodes.length,
+            totalFiles: flatNodes.filter(n => n.type === 'file').length,
+            totalFolders: flatNodes.filter(n => n.type === 'folder').length
+          }
+        });
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
+    } else {
+      res.json({
+        message: 'Project tree saved successfully (mock mode)',
+        projectId,
+        nodeCount: nodes.length
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error saving project tree:', error);
+    res.status(500).json({
+      error: 'Failed to save project tree',
+      details: error.message
+    });
+  }
+});
+
+// Update node position
+app.patch('/api/node/:id/position', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { x, y } = req.body;
+
+    if (process.env.MONGODB_URI) {
+      const updatedNode = await FileSystemNode.findOneAndUpdate(
+        { id },
+        { x, y, updatedAt: new Date() },
+        { new: true }
+      );
+
+      if (!updatedNode) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
+
+      // Emit real-time update
+      io.emit('node-position-updated', { id, x, y });
+
+      res.json({
+        message: 'Node position updated successfully',
+        node: updatedNode
+      });
+    } else {
+      res.json({
+        message: 'Node position updated successfully (mock mode)',
+        id, x, y
+      });
+    }
+  } catch (error) {
+    console.error('Error updating node position:', error);
+    res.status(500).json({ error: 'Failed to update node position' });
+  }
+});
+
+// Delete node
+app.delete('/api/node/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (process.env.MONGODB_URI) {
+      // Find the node first to get its children
+      const nodeToDelete = await FileSystemNode.findOne({ id });
+
+      if (!nodeToDelete) {
+        return res.status(404).json({ error: 'Node not found' });
+      }
+
+      // Recursively delete node and all its children
+      const deleteNodeAndChildren = async (nodeId) => {
+        const children = await FileSystemNode.find({ parentId: nodeId });
+
+        // Delete all children first
+        for (const child of children) {
+          await deleteNodeAndChildren(child.id);
+        }
+
+        // Delete the node itself
+        await FileSystemNode.deleteOne({ id: nodeId });
+      };
+
+      await deleteNodeAndChildren(id);
+
+      // Emit real-time update
+      io.emit('node-deleted', { id, projectId: nodeToDelete.projectId });
+
+      res.json({
+        message: 'Node and its children deleted successfully',
+        deletedNodeId: id
+      });
+    } else {
+      res.json({
+        message: 'Node deleted successfully (mock mode)',
+        deletedNodeId: id
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting node:', error);
+    res.status(500).json({ error: 'Failed to delete node' });
+  }
+});
+
+// Get file content
+app.get('/api/file/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (process.env.MONGODB_URI) {
+      const node = await FileSystemNode.findOne({ id, type: 'file' });
+
+      if (!node) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      res.json(node);
+    } else {
+      // Mock file content
+      res.json({
+        id,
+        type: 'file',
+        name: 'mock-file.txt',
+        content: 'Mock file content for development',
+        projectId: 'mock-project'
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching file:', error);
+    res.status(500).json({ error: 'Failed to fetch file' });
+  }
+});
+
+// Save file content
+app.post('/api/file/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (process.env.MONGODB_URI) {
+      const updatedNode = await FileSystemNode.findOneAndUpdate(
+        { id, type: 'file' },
+        {
+          content,
+          size: calculateFileSize(content),
+          'metadata.lineCount': countLines(content),
+          updatedAt: new Date()
+        },
+        { new: true }
+      );
+
+      if (!updatedNode) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      // Emit real-time update
+      io.emit('file-content-updated', { id, content });
+
+      res.json({
+        message: 'File content saved successfully',
+        file: updatedNode
+      });
+    } else {
+      res.json({
+        message: 'File content saved successfully (mock mode)',
+        id, content
+      });
+    }
+  } catch (error) {
+    console.error('Error saving file content:', error);
+    res.status(500).json({ error: 'Failed to save file content' });
+  }
+});
+
+// Helper function to build hierarchical structure from flat array
+const buildHierarchy = (nodes) => {
+  const nodeMap = {};
+  const rootNodes = [];
+
+  // Create a map of all nodes
+  nodes.forEach(node => {
+    nodeMap[node.id] = { ...node.toObject(), children: [] };
+  });
+
+  // Build the hierarchy
+  nodes.forEach(node => {
+    const nodeObj = nodeMap[node.id];
+    if (node.parentId && nodeMap[node.parentId]) {
+      nodeMap[node.parentId].children.push(nodeObj);
+    } else {
+      rootNodes.push(nodeObj);
+    }
+  });
+
+  return rootNodes;
 };
 
 // Helper functions
@@ -614,6 +1076,23 @@ app.post('/api/file/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+// Get file system tree (legacy endpoint - returns all nodes from all projects)
+app.get('/api/tree', asyncHandler(async (req, res) => {
+  try {
+    if (process.env.MONGODB_URI) {
+      const nodes = await FileSystemNode.find({}).sort({ createdAt: 1 });
+      const tree = buildHierarchy(nodes);
+      res.json(tree);
+    } else {
+      // Return empty tree for legacy compatibility
+      res.json([]);
+    }
+  } catch (error) {
+    console.error('Error fetching tree:', error);
+    res.status(500).json({ error: 'Failed to fetch tree' });
+  }
+}));
+
 // Save entire tree structure with validation
 app.post('/api/tree', asyncHandler(async (req, res) => {
   try {
@@ -691,6 +1170,87 @@ app.post('/api/tree', asyncHandler(async (req, res) => {
       error: 'Failed to save tree',
       message: error.message
     });
+  }
+}));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: process.env.MONGODB_URI ?
+      (mongoose.connection.readyState === 1 ? 'connected' : 'disconnected') :
+      'mock',
+    version: '1.0.0'
+  });
+});
+
+// Search nodes endpoint
+app.get('/api/search', asyncHandler(async (req, res) => {
+  try {
+    const { q: query, projectId } = req.query;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+
+    if (process.env.MONGODB_URI) {
+      const searchFilter = {
+        $or: [
+          { name: new RegExp(query, 'i') },
+          { content: new RegExp(query, 'i') }
+        ]
+      };
+
+      // Add project filter if specified
+      if (projectId) {
+        searchFilter.projectId = projectId;
+      }
+
+      const results = await FileSystemNode.find(searchFilter).limit(50);
+      res.json(results);
+    } else {
+      // Mock search results
+      res.json([]);
+    }
+  } catch (error) {
+    console.error('Error searching nodes:', error);
+    res.status(500).json({ error: 'Search failed' });
+  }
+}));
+
+// Statistics endpoint
+app.get('/api/stats', asyncHandler(async (req, res) => {
+  try {
+    if (process.env.MONGODB_URI) {
+      const totalProjects = await Project.countDocuments({ isActive: true });
+      const totalNodes = await FileSystemNode.countDocuments();
+      const totalFiles = await FileSystemNode.countDocuments({ type: 'file' });
+      const totalFolders = await FileSystemNode.countDocuments({ type: 'folder' });
+
+      res.json({
+        projects: totalProjects,
+        nodes: {
+          total: totalNodes,
+          files: totalFiles,
+          folders: totalFolders
+        },
+        database: {
+          connected: mongoose.connection.readyState === 1,
+          name: mongoose.connection.name
+        }
+      });
+    } else {
+      res.json({
+        projects: 2,
+        nodes: { total: 0, files: 0, folders: 0 },
+        database: { connected: false, name: 'mock' }
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 }));
 
