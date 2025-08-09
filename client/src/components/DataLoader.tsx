@@ -1,15 +1,9 @@
-import { useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchFileSystemTree } from '../store/fileSystemSlice';
+import { useAppSelector } from '../store/hooks';
 
 const DataLoader: React.FC = () => {
-  const dispatch = useAppDispatch();
   const { loading, error } = useAppSelector((state) => state.fileSystem);
 
-  useEffect(() => {
-    // Load file system tree on app start
-    dispatch(fetchFileSystemTree());
-  }, [dispatch]);
+  // Note: We no longer auto-load data here since we're using project-specific loading
 
   if (loading) {
     return (
