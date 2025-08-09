@@ -17,6 +17,12 @@ export const fileSystemAPI = {
     return response.data;
   },
 
+  // Get file system tree for a specific project
+  getProjectTree: async (projectId: string): Promise<FileSystemNode[]> => {
+    const response = await api.get(`/projects/${projectId}/nodes`);
+    return response.data;
+  },
+
   // Get specific file content
   getFile: async (id: string): Promise<FileSystemNode> => {
     const response = await api.get(`/file/${id}`);
@@ -33,6 +39,11 @@ export const fileSystemAPI = {
     await api.post('/tree', { nodes });
   },
 
+  // Save project-specific tree structure
+  saveProjectTree: async (nodes: FileSystemNode[], projectId: string): Promise<void> => {
+    await api.post(`/projects/${projectId}/tree`, { nodes });
+  },
+
   // Update node position
   updateNodePosition: async (id: string, x: number, y: number): Promise<void> => {
     await api.patch(`/node/${id}/position`, { x, y });
@@ -41,6 +52,11 @@ export const fileSystemAPI = {
   // Create new file or folder
   createNode: async (node: Omit<FileSystemNode, 'id'> & { id: string }): Promise<void> => {
     await api.post('/node', node);
+  },
+
+  // Create project-specific node
+  createProjectNode: async (node: FileSystemNode, projectId: string): Promise<void> => {
+    await api.post(`/projects/${projectId}/node`, node);
   },
 
   // Delete node
@@ -53,4 +69,31 @@ export const fileSystemAPI = {
     const response = await api.get('/health');
     return response.data;
   },
+};
+
+// Project Management API
+export const projectAPI = {
+  // Get all projects
+  getProjects: async () => {
+    const response = await api.get('/projects');
+    return response.data;
+  },
+
+  // Create new project
+  createProject: async (projectData: { name: string; description: string }) => {
+    const response = await api.post('/projects', projectData);
+    return response.data;
+  },
+
+  // Update project
+  updateProject: async (projectId: string, projectData: Partial<{ name: string; description: string }>) => {
+    const response = await api.put(`/projects/${projectId}`, projectData);
+    return response.data;
+  },
+
+  // Delete project
+  deleteProject: async (projectId: string) => {
+    const response = await api.delete(`/projects/${projectId}`);
+    return response.data;
+  }
 };
