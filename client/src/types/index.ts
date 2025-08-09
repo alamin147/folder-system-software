@@ -1,5 +1,6 @@
 export interface FileSystemNode {
   id: string;
+  projectId?: string; // Add project reference
   type: 'file' | 'folder';
   name: string;
   content?: string; // Only for files
@@ -13,6 +14,7 @@ export interface FileSystemNode {
 export interface FileSystemState {
   nodes: FileSystemNode[];
   selectedNodeId: string | null;
+  currentProjectId: string | null; // Add current project tracking
   isEditorOpen: boolean;
   editingFile: FileSystemNode | null;
   loading: boolean;
