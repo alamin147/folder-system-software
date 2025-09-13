@@ -4,6 +4,7 @@ import { X, Save, Download, Copy, RotateCcw, Maximize, Minimize } from 'lucide-r
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { closeEditor, updateContent } from '../store/editorSlice';
 import { saveFileToAPI } from '../store/editorSlice';
+import { updateFileContent } from '../store/fileSystemSlice';
 
 const FileEditor: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -17,6 +18,7 @@ const FileEditor: React.FC = () => {
     if (isDirty && file) {
       const autoSaveTimer = setTimeout(() => {
         dispatch(saveFileToAPI({ id: file.id, content }));
+        dispatch(updateFileContent({ id: file.id, content }));
       }, 30000); // Auto-save after 30 seconds of inactivity
 
       return () => clearTimeout(autoSaveTimer);
@@ -29,7 +31,10 @@ const FileEditor: React.FC = () => {
 
   const handleSave = useCallback(() => {
     if (file) {
+      // Save to API
       dispatch(saveFileToAPI({ id: file.id, content }));
+      // Also update local file system state
+      dispatch(updateFileContent({ id: file.id, content }));
     }
   }, [dispatch, file, content]);
 

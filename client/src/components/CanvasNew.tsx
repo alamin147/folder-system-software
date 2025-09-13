@@ -51,7 +51,7 @@ import {
   setCurrentProject,
   fetchFileSystemTree,
 } from "../store/fileSystemSlice";
-import { openEditor } from "../store/editorSlice";
+import { openEditor, openEditorAndLoadContent, loadFileContent } from "../store/editorSlice";
 import type { FileSystemNode } from "../types/index";
 import { FaJava, FaPhp } from "react-icons/fa";
 
@@ -383,7 +383,15 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
         node.expanded
       );
       if (node.type === "file") {
-        dispatch(openEditor(node));
+        // Check if file content is already available or needs to be loaded
+        if (node.content !== undefined) {
+          // Content is already available, open directly
+          dispatch(openEditor(node));
+        } else {
+          // Content needs to be loaded from database
+          dispatch(openEditorAndLoadContent(node));
+          dispatch(loadFileContent(node.id));
+        }
       } else if (node.type === "folder") {
         console.log("Toggling folder:", node.id);
         dispatch(toggleFolder(node.id));
@@ -817,7 +825,13 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
                 <button
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 transition-colors"
                   onClick={() => {
-                    dispatch(openEditor(contextMenu.node));
+                    const node = contextMenu.node;
+                    if (node.content !== undefined) {
+                      dispatch(openEditor(node));
+                    } else {
+                      dispatch(openEditorAndLoadContent(node));
+                      dispatch(loadFileContent(node.id));
+                    }
                     setContextMenu(null);
                   }}
                 >

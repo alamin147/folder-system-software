@@ -26,4 +26,5 @@ export interface EditorState {
   file: FileSystemNode | null;
   content: string;
   isDirty: boolean;
+  loading: boolean;
 }
