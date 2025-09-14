@@ -48,6 +48,7 @@ import {
   createNodeAPI,
   deleteNodeAPI,
   updateNodePosition,
+  updateNodePositionAPI,
   setCurrentProject,
   fetchFileSystemTree,
 } from "../store/fileSystemSlice";
@@ -369,6 +370,12 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
       console.log("Using test data");
       return;
     }
+    console.log("📊 Loaded file system nodes:", fileSystemNodes.map((n: FileSystemNode) => ({
+      name: n.name,
+      x: n.x,
+      y: n.y,
+      type: n.type
+    })));
     return fileSystemNodes;
   }, [fileSystemNodes]);
 
@@ -409,9 +416,20 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
 
   const handleNodeDragStop = useCallback(
     (_: any, node: any) => {
-      // Update the node position in the Redux store when dragging stops
+      console.log(`🔄 Node ${node.id} dragged to position:`, node.position.x, node.position.y);
+
+      // Update the node position in the Redux store (local state)
       dispatch(
         updateNodePosition({
+          id: node.id,
+          x: node.position.x,
+          y: node.position.y,
+        })
+      );
+
+      // Also save the position to the database
+      dispatch(
+        updateNodePositionAPI({
           id: node.id,
           x: node.position.x,
           y: node.position.y,
@@ -558,7 +576,9 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
         "Parent:",
         parentNode?.name,
         "Expanded:",
-        node.expanded
+        node.expanded,
+        "Position:",
+        `x=${node.x}, y=${node.y}`
       );
 
       // Create React Flow node
