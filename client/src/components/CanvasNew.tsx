@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useMemo, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   SiPython,
   SiJavascript,
@@ -343,6 +344,8 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 
 const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { nodes: fileSystemNodes, selectedNodeId }: any = useAppSelector(
     (state) => state.fileSystem
   );
@@ -370,6 +373,39 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
       dispatch(setCurrentProject(null));
     }
   }, [projectId, dispatch]);
+
+  // Sync URL state with folder expansion
+  useEffect(() => {
+    // Extract folder ID from URL path (format: /:projectId/folder/:folderId)
+    const pathParts = location.pathname.split('/');
+    const activeFolderId = pathParts.length > 3 && pathParts[2] === 'folder' ? pathParts[3] : null;
+
+    if (activeFolderId && selectedNodeId !== activeFolderId) {
+      // Select the folder mentioned in URL
+      dispatch(selectNode(activeFolderId));
+    }
+  }, [location.pathname, dispatch, selectedNodeId]);
+
+  // Sync URL with folder navigation
+  useEffect(() => {
+    const handleNodeSelect = (nodeId: string) => {
+      dispatch(selectNode(nodeId));
+      const selectedNode = fileSystemNodes.find((node: FileSystemNode) => node.id === nodeId);
+      if (selectedNode && selectedNode.type === "folder") {
+        // Update URL to reflect current folder
+        const newPath = `/projects/${projectId}/folder/${selectedNode.id}`;
+        navigate(newPath, { replace: true });
+      }
+    };
+
+    // Extract folder ID from URL and select corresponding node
+    const pathParts = location.pathname.split("/");
+    const folderIdFromUrl = pathParts[pathParts.length - 1];
+    if (folderIdFromUrl && folderIdFromUrl !== "projects" && folderIdFromUrl !== projectId) {
+      const nodeId = folderIdFromUrl;
+      handleNodeSelect(nodeId);
+    }
+  }, [fileSystemNodes, projectId, dispatch, navigate, location.pathname]);
 
   // Use test data if enabled or if no real data
   const currentData = useMemo(() => {
@@ -410,9 +446,20 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
       } else if (node.type === "folder") {
         console.log("🔄 Toggling folder:", node.id, "current expanded:", node.expanded);
         dispatch(toggleFolderAPI(node.id));
+
+        // Update URL to reflect folder state
+        if (projectId) {
+          if (node.expanded) {
+            // Folder is being collapsed, go back to project root
+            navigate(`/${projectId}`, { replace: true });
+          } else {
+            // Folder is being expanded, navigate to folder URL
+            navigate(`/${projectId}/folder/${node.id}`, { replace: true });
+          }
+        }
       }
     },
-    [dispatch]
+    [dispatch, navigate, location.search, projectId]
   );
 
   const handleNodeSelect = useCallback(
