@@ -19,7 +19,6 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   ConnectionMode,
-  Panel,
   MiniMap,
   MarkerType,
   Handle,
@@ -508,48 +507,6 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
     [dispatch, fileSystemNodes, projectId]
   );
 
-  const handleCreateRootNode = useCallback(
-    (type: "file" | "folder") => {
-      const name = prompt(`Enter ${type} name:`);
-      if (name) {
-        const rootNode = fileSystemNodes.find(
-          (n: FileSystemNode) => n.id === "root" || n.name === "Root"
-        );
-
-        let newX, newY;
-        if (rootNode) {
-          if (type === "folder") {
-            // Position folders under the root with a gap
-            newX = rootNode.x || 100;
-            newY = (rootNode.y || 100) + 120; // 120px below root
-          } else {
-            // Position files to the bottom-right of root
-            newX = (rootNode.x || 100) + 200; // 200px to the right
-            newY = (rootNode.y || 100) + 80; // 80px below root
-          }
-        } else {
-          // Fallback positioning if no root found
-          newX = type === "folder" ? 100 : 300;
-          newY = type === "folder" ? 200 : 150;
-        }
-
-        const newNode = {
-          type,
-          name,
-          x: newX,
-          y: newY,
-          expanded: type === "folder" ? false : undefined,
-          content: type === "file" ? "" : undefined,
-        };
-
-        if (rootNode && projectId) {
-          dispatch(createNodeAPI({ parentId: rootNode.id, node: newNode, projectId }));
-        }
-      }
-    },
-    [dispatch, fileSystemNodes, projectId]
-  );
-
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       if (confirm("Are you sure you want to delete this item?")) {
@@ -771,42 +728,6 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
           inversePan={false}
           position="bottom-right"
         />
-
-        {/* Toolbar Panel */}
-        <Panel
-          position="top-left"
-          className="bg-white rounded-lg shadow-lg p-3 m-4"
-        >
-          <div className="flex items-center space-x-3">
-            <h3 className="font-semibold text-gray-800 mr-3">
-              File System - WORKING VERSION
-            </h3>
-            <button
-              onClick={() => handleCreateRootNode("file")}
-              className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm transition-colors"
-              title="Create new file"
-            >
-              <FilePlus size={14} />
-              <span>File</span>
-            </button>
-            <button
-              onClick={() => handleCreateRootNode("folder")}
-              className="flex items-center space-x-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm transition-colors"
-              title="Create new folder"
-            >
-              <FolderPlus size={14} />
-              <span>Folder</span>
-            </button>
-          </div>
-        </Panel>
-
-        {/* Status Panel */}
-        {/* <Panel position="bottom-right" className="bg-white rounded-lg shadow-lg p-2 m-4">
-          <div className="text-xs text-gray-600">
-            <div> {nodes.length} nodes, {edges.length} edges</div>
-            <div> Connections: {edges.length > 0 ? 'VISIBLE ' : 'NONE '}</div>
-          </div>
-        </Panel> */}
       </ReactFlow>
 
       {/* Context Menu */}
