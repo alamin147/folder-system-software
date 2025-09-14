@@ -38,7 +38,15 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const [viewMode, ] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
+    name: '',
+    description: ''
+  });
+  const [editProject, setEditProject] = useState({
     name: '',
     description: ''
   });
@@ -73,18 +81,46 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     }
   };
 
-  const deleteProject = async (projectId: string) => {
-    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-      return;
-    }
+  const openEditModal = (project: Project) => {
+    setProjectToEdit(project);
+    setEditProject({
+      name: project.name,
+      description: project.description
+    });
+    setShowEditModal(true);
+  };
+
+  const updateProject = async () => {
+    if (!projectToEdit || !editProject.name.trim()) return;
 
     try {
-      await projectAPI.deleteProject(projectId);
-      setProjects(prev => prev.filter(p => p.id !== projectId));
+      const updatedProject = await projectAPI.updateProject(projectToEdit.id, editProject);
+      setProjects(prev => prev.map(p => p.id === projectToEdit.id ? updatedProject : p));
+      setShowEditModal(false);
+      setProjectToEdit(null);
+      setEditProject({ name: '', description: '' });
+    } catch (error) {
+      console.error('Error updating project:', error);
+    }
+  };
+
+  const openDeleteModal = (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteModal(true);
+  };
+
+  const deleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      await projectAPI.deleteProject(projectToDelete.id);
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       // If deleted project was selected, clear selection
-      if (selectedProjectId === projectId) {
+      if (selectedProjectId === projectToDelete.id) {
         onSelectProject('');
       }
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
     } catch (error) {
       console.error('Error deleting project:', error);
     }
@@ -130,7 +166,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
             <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
               <FolderOpen size={24} className="text-white" />
             </div>
-           
+
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -225,7 +261,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          console.log('Edit project:', project.id);
+                          openEditModal(project);
                         }}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                         title="Edit project"
@@ -235,7 +271,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteProject(project.id);
+                          openDeleteModal(project);
                         }}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                         title="Delete project"
@@ -332,6 +368,150 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                   <span className="flex items-center space-x-2">
                     <Plus size={16} />
                     <span>Create Project</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditModal && projectToEdit && (
+        <div className="fixed inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-0 w-full max-w-lg mx-4 transform transition-all">
+            {/* Header */}
+            <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600">
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative px-6 py-5 flex items-center space-x-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg">
+                  <Edit3 size={24} className="text-white drop-shadow-sm" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white drop-shadow-sm">Edit Project</h2>
+                  <p className="text-white/80 text-sm font-medium">Update your project details</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    Project Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editProject.name}
+                    onChange={(e) => setEditProject(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., My Web App, Portfolio Site..."
+                    className="w-full px-4 py-3 bg-gray-50/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 text-gray-800 placeholder-gray-400 font-medium hover:bg-gray-50 focus:bg-white focus:shadow-lg"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    Description
+                  </label>
+                  <textarea
+                    value={editProject.description}
+                    onChange={(e) => setEditProject(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe what this project is about..."
+                    rows={4}
+                    className="w-full px-4 py-3 bg-gray-50/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 text-gray-800 placeholder-gray-400 font-medium hover:bg-gray-50 focus:bg-white focus:shadow-lg resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setProjectToEdit(null);
+                    setEditProject({ name: '', description: '' });
+                  }}
+                  className="px-6 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 font-semibold hover:shadow-md focus:ring-2 focus:ring-gray-300/50 focus:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={updateProject}
+                  disabled={!editProject.name.trim()}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-300/50 focus:outline-none hover:shadow-lg transform hover:scale-105 active:scale-95 shadow-lg"
+                >
+                  <span className="flex items-center space-x-2">
+                    <Edit3 size={16} />
+                    <span>Update Project</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Project Modal */}
+      {showDeleteModal && projectToDelete && (
+        <div className="fixed inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-0 w-full max-w-md mx-4 transform transition-all">
+            {/* Header */}
+            <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-red-500 via-red-600 to-pink-600">
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative px-6 py-5 flex items-center space-x-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg">
+                  <Trash2 size={24} className="text-white drop-shadow-sm" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white drop-shadow-sm">Delete Project</h2>
+                  <p className="text-white/80 text-sm font-medium">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-6">
+                <p className="text-gray-700 mb-4 leading-relaxed">
+                  Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>?
+                </p>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center mt-0.5">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    </div>
+                    <div className="text-sm text-red-700">
+                      <p className="font-semibold mb-1">This will permanently delete:</p>
+                      <ul className="list-disc list-inside space-y-1 text-red-600">
+                        <li>The project and all its settings</li>
+                        <li>All files and folders in this project</li>
+                        <li>All saved positions and configurations</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setProjectToDelete(null);
+                  }}
+                  className="px-6 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 font-semibold hover:shadow-md focus:ring-2 focus:ring-gray-300/50 focus:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteProject}
+                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold transition-all duration-200 hover:from-red-700 hover:to-pink-700 focus:ring-2 focus:ring-red-300/50 focus:outline-none hover:shadow-lg transform hover:scale-105 active:scale-95 shadow-lg"
+                >
+                  <span className="flex items-center space-x-2">
+                    <Trash2 size={16} />
+                    <span>Delete Project</span>
                   </span>
                 </button>
               </div>
