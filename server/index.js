@@ -413,9 +413,12 @@ app.get('/api/projects/:projectId/nodes', async (req, res) => {
 
     if (process.env.MONGODB_URI) {
       const nodes = await FileSystemNode.find({ projectId }).sort({ createdAt: 1 });
+      console.log('🔍 Raw nodes from DB:', nodes.map(n => ({ id: n.id, name: n.name, expanded: n.expanded, type: n.type })));
       const transformedNodes = buildHierarchy(nodes);
+      console.log('🔍 Transformed nodes:', JSON.stringify(transformedNodes.map(n => ({ id: n.id, name: n.name, expanded: n.expanded, type: n.type })), null, 2));
       res.json(transformedNodes);
     } else {
+      console.log('🔍 Using mock mode for project:', projectId);
       // Mock data for demo project
       if (projectId === 'demo-project') {
         const mockNodes = [
@@ -674,6 +677,42 @@ app.patch('/api/node/:id/position', async (req, res) => {
   } catch (error) {
     console.error('Error updating node position:', error);
     res.status(500).json({ error: 'Failed to update node position' });
+  }
+});
+
+// Update folder expanded state
+app.patch('/api/node/:id/expanded', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { expanded } = req.body;
+
+    if (process.env.MONGODB_URI) {
+      const updatedNode = await FileSystemNode.findOneAndUpdate(
+        { id, type: 'folder' },
+        { expanded, updatedAt: new Date() },
+        { new: true }
+      );
+
+      if (!updatedNode) {
+        return res.status(404).json({ error: 'Folder not found' });
+      }
+
+      // Emit real-time update
+      io.emit('folder-expanded-updated', { id, expanded });
+
+      res.json({
+        message: 'Folder expanded state updated successfully',
+        node: updatedNode
+      });
+    } else {
+      res.json({
+        message: 'Folder expanded state updated successfully (mock mode)',
+        id, expanded
+      });
+    }
+  } catch (error) {
+    console.error('Error updating folder expanded state:', error);
+    res.status(500).json({ error: 'Failed to update folder expanded state' });
   }
 });
 

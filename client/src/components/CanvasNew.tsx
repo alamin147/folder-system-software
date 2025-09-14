@@ -44,7 +44,7 @@ import {
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   selectNode,
-  toggleFolder,
+  toggleFolderAPI,
   createNodeAPI,
   deleteNodeAPI,
   updateNodePosition,
@@ -374,7 +374,8 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
       name: n.name,
       x: n.x,
       y: n.y,
-      type: n.type
+      type: n.type,
+      expanded: n.expanded
     })));
     return fileSystemNodes;
   }, [fileSystemNodes]);
@@ -400,8 +401,8 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
           dispatch(loadFileContent(node.id));
         }
       } else if (node.type === "folder") {
-        console.log("Toggling folder:", node.id);
-        dispatch(toggleFolder(node.id));
+        console.log("🔄 Toggling folder:", node.id, "current expanded:", node.expanded);
+        dispatch(toggleFolderAPI(node.id));
       }
     },
     [dispatch]

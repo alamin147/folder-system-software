@@ -36,6 +36,48 @@ export const updateNodePositionAPI = createAsyncThunk(
   }
 );
 
+export const updateFolderExpandedAPI = createAsyncThunk(
+  'fileSystem/updateExpanded',
+  async ({ id, expanded }: { id: string; expanded: boolean }) => {
+    await fileSystemAPI.updateFolderExpanded(id, expanded);
+    return { id, expanded };
+  }
+);
+
+export const toggleFolderAPI = createAsyncThunk(
+  'fileSystem/toggleFolderAPI',
+  async (nodeId: string, { getState, dispatch }) => {
+    const state = getState() as { fileSystem: any };
+
+    // Find the current expanded state
+    const findNode = (nodes: FileSystemNode[], id: string): FileSystemNode | null => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = findNode(node.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const node = findNode(state.fileSystem.nodes, nodeId);
+    if (node && node.type === 'folder') {
+      const newExpanded = !node.expanded;
+
+      // First update locally
+      dispatch(toggleFolder(nodeId));
+
+      // Then save to database
+      await fileSystemAPI.updateFolderExpanded(nodeId, newExpanded);
+
+      return { id: nodeId, expanded: newExpanded };
+    }
+
+    return { id: nodeId, expanded: false };
+  }
+);
+
 export const createNodeAPI = createAsyncThunk(
   'fileSystem/createNode',
   async ({ parentId, node, projectId }: { parentId: string; node: Omit<FileSystemNode, 'id' | 'parentId'>; projectId: string }) => {
@@ -216,6 +258,21 @@ const fileSystemSlice = createSlice({
           }
         };
         updatePositionRecursive(state.nodes);
+      })
+      // Update folder expanded state
+      .addCase(updateFolderExpandedAPI.fulfilled, (state, action) => {
+        const updateExpandedRecursive = (nodes: FileSystemNode[]): void => {
+          for (const node of nodes) {
+            if (node.id === action.payload.id && node.type === 'folder') {
+              node.expanded = action.payload.expanded;
+              return;
+            }
+            if (node.children) {
+              updateExpandedRecursive(node.children);
+            }
+          }
+        };
+        updateExpandedRecursive(state.nodes);
       })
       // Create node
       .addCase(createNodeAPI.fulfilled, (state, action) => {

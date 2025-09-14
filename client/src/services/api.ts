@@ -49,6 +49,11 @@ export const fileSystemAPI = {
     await api.patch(`/node/${id}/position`, { x, y });
   },
 
+  // Update folder expanded state
+  updateFolderExpanded: async (id: string, expanded: boolean): Promise<void> => {
+    await api.patch(`/node/${id}/expanded`, { expanded });
+  },
+
   // Create new file or folder
   createNode: async (node: Omit<FileSystemNode, 'id'> & { id: string }): Promise<void> => {
     await api.post('/node', node);
