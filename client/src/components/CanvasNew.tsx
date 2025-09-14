@@ -39,6 +39,7 @@ import {
   Music,
   Video,
   Archive,
+  X,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
@@ -352,6 +353,13 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
     y: number;
     node: FileSystemNode;
   } | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createNodeType, setCreateNodeType] = useState<"file" | "folder">("file");
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
+  const [createParentName, setCreateParentName] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteNodeId, setDeleteNodeId] = useState<string | null>(null);
+  const [deleteNodeName, setDeleteNodeName] = useState<string | null>(null);
 
   // Load project data when projectId changes
   useEffect(() => {
@@ -454,68 +462,67 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
   // Node creation handlers
   const handleCreateNode = useCallback(
     (type: "file" | "folder", parentId: string) => {
-      const name = prompt(`Enter ${type} name:`);
-      if (name) {
-        // Find parent node to get its position
-        const findNodeById = (
-          nodes: FileSystemNode[],
-          id: string
-        ): FileSystemNode | null => {
-          for (const node of nodes) {
-            if (node.id === id) return node;
-            if (node.children) {
-              const found = findNodeById(node.children, id);
-              if (found) return found;
-            }
+      // Find parent node to get its name
+      const findNodeById = (
+        nodes: FileSystemNode[],
+        id: string
+      ): FileSystemNode | null => {
+        for (const node of nodes) {
+          if (node.id === id) return node;
+          if (node.children) {
+            const found = findNodeById(node.children, id);
+            if (found) return found;
           }
-          return null;
-        };
-
-        const parentNode = findNodeById(fileSystemNodes, parentId);
-        let newX, newY;
-
-        if (parentNode) {
-          if (type === "folder") {
-            // Position folders under the parent with a gap
-            newX = parentNode.x || 100;
-            newY = (parentNode.y || 100) + 120; // 120px below parent
-          } else {
-            // Position files to the bottom-right of parent
-            newX = (parentNode.x || 100) + 200; // 200px to the right
-            newY = (parentNode.y || 100) + 80; // 80px below parent
-          }
-        } else {
-          // Fallback to random position if parent not found
-          newX = Math.random() * 200 + 100;
-          newY = Math.random() * 200 + 100;
         }
+        return null;
+      };
 
-        const newNode = {
-          type,
-          name,
-          x: newX,
-          y: newY,
-          expanded: type === "folder" ? false : undefined,
-          content: type === "file" ? "" : undefined,
-        };
-        if (projectId) {
-          dispatch(createNodeAPI({ parentId, node: newNode, projectId }));
-        }
-      }
+      const parentNode = findNodeById(fileSystemNodes, parentId);
+
+      // Set up modal state
+      setCreateNodeType(type);
+      setCreateParentId(parentId);
+      setCreateParentName(parentNode?.name || "Root");
+      setIsCreateModalOpen(true);
       setContextMenu(null);
     },
-    [dispatch, fileSystemNodes, projectId]
+    [fileSystemNodes]
   );
 
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
-      if (confirm("Are you sure you want to delete this item?")) {
-        dispatch(deleteNodeAPI(nodeId));
-      }
+      // Find the node to get its name
+      const findNodeById = (
+        nodes: FileSystemNode[],
+        id: string
+      ): FileSystemNode | null => {
+        for (const node of nodes) {
+          if (node.id === id) return node;
+          if (node.children) {
+            const found = findNodeById(node.children, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const nodeToDelete = findNodeById(fileSystemNodes, nodeId);
+      setDeleteNodeId(nodeId);
+      setDeleteNodeName(nodeToDelete?.name || "this item");
+      setIsDeleteModalOpen(true);
       setContextMenu(null);
     },
-    [dispatch]
+    [fileSystemNodes]
   );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteNodeId) {
+      dispatch(deleteNodeAPI(deleteNodeId));
+      setIsDeleteModalOpen(false);
+      setDeleteNodeId(null);
+      setDeleteNodeName(null);
+    }
+  }, [dispatch, deleteNodeId]);
 
   // Generate nodes and edges - SIMPLIFIED AND GUARANTEED TO WORK
   const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
@@ -694,6 +701,62 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
             padding: 2px 6px !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
           }
+
+          /* Custom Modal Animations */
+          @keyframes fade-in {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+
+          @keyframes zoom-in-95 {
+            from {
+              opacity: 0;
+              transform: scale(0.95) translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1) translateY(0);
+            }
+          }
+
+          @keyframes slide-in-from-bottom-4 {
+            from {
+              transform: translateY(16px);
+            }
+            to {
+              transform: translateY(0);
+            }
+          }
+
+          .animate-in {
+            animation-duration: 150ms;
+            animation-timing-function: ease-out;
+            animation-fill-mode: both;
+          }
+
+          .fade-in {
+            animation-name: fade-in;
+          }
+
+          .zoom-in-95 {
+            animation-name: zoom-in-95;
+          }
+
+          .slide-in-from-bottom-4 {
+            animation-name: slide-in-from-bottom-4;
+          }
+
+          .duration-200 {
+            animation-duration: 200ms !important;
+          }
+
+          .duration-300 {
+            animation-duration: 300ms !important;
+          }
         `,
         }}
       />
@@ -794,6 +857,255 @@ const CanvasNew: React.FC<{ projectId?: string }> = ({ projectId }) => {
             )}
           </div>
         </>
+      )}
+
+      {/* Create Node Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/60 backdrop-blur-md"
+            onClick={() => setIsCreateModalOpen(false)}
+          />
+          {/* Modal */}
+          <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-0 w-full max-w-lg mx-4 transform transition-all animate-in zoom-in-95 duration-300 slide-in-from-bottom-4">
+            {/* Gradient Header */}
+            <div className={`relative overflow-hidden rounded-t-2xl ${
+              createNodeType === "folder"
+                ? "bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600"
+                : "bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600"
+            }`}>
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg">
+                    {createNodeType === "folder" ? (
+                      <FolderPlus size={24} className="text-white drop-shadow-sm" />
+                    ) : (
+                      <FilePlus size={24} className="text-white drop-shadow-sm" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white drop-shadow-sm">
+                      Create New {createNodeType === "folder" ? "Folder" : "File"}
+                    </h3>
+                    {createParentName && (
+                      <p className="text-white/80 text-sm font-medium mt-1 flex items-center">
+                        <Folder size={14} className="mr-1.5" />
+                        {createParentName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 group border border-white/20 hover:border-white/40"
+                >
+                  <X size={20} className="text-white/80 group-hover:text-white transition-colors" />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const name = (formData.get('name') as string)?.trim();
+                  if (name && createParentId && projectId) {
+                    // Find parent node to get its position for new node placement
+                    const findNodeById = (
+                      nodes: FileSystemNode[],
+                      id: string
+                    ): FileSystemNode | null => {
+                      for (const node of nodes) {
+                        if (node.id === id) return node;
+                        if (node.children) {
+                          const found = findNodeById(node.children, id);
+                          if (found) return found;
+                        }
+                      }
+                      return null;
+                    };
+
+                    const parentNode = findNodeById(fileSystemNodes, createParentId);
+                    let newX, newY;
+
+                    if (parentNode) {
+                      if (createNodeType === "folder") {
+                        // Position folders under the parent with a gap
+                        newX = parentNode.x || 100;
+                        newY = (parentNode.y || 100) + 120; // 120px below parent
+                      } else {
+                        // Position files to the bottom-right of parent
+                        newX = (parentNode.x || 100) + 200; // 200px to the right
+                        newY = (parentNode.y || 100) + 80; // 80px below parent
+                      }
+                    } else {
+                      // Fallback to random position if parent not found
+                      newX = Math.random() * 200 + 100;
+                      newY = Math.random() * 200 + 100;
+                    }
+
+                    dispatch(
+                      createNodeAPI({
+                        parentId: createParentId,
+                        node: {
+                          name,
+                          type: createNodeType,
+                          x: newX,
+                          y: newY,
+                          expanded: createNodeType === "folder" ? false : undefined,
+                          content: createNodeType === "file" ? "" : undefined,
+                        },
+                        projectId,
+                      })
+                    );
+                    setIsCreateModalOpen(false);
+                  }
+                }}
+                className="space-y-6"
+              >
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    {createNodeType === "folder" ? "Folder" : "File"} Name
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder={
+                        createNodeType === "folder"
+                          ? "e.g., components, assets, docs..."
+                          : "e.g., app.js, styles.css, README.md..."
+                      }
+                      className="w-full px-4 py-3 bg-gray-50/80 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 text-gray-800 placeholder-gray-400 font-medium hover:bg-gray-50 focus:bg-white focus:shadow-lg"
+                      autoFocus
+                      required
+                    />
+                    <div className={`absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none ${
+                      createNodeType === "folder" ? "text-blue-400" : "text-green-400"
+                    }`}>
+                      {createNodeType === "folder" ? (
+                        <Folder size={18} />
+                      ) : (
+                        <File size={18} />
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                    {createNodeType === "folder"
+                      ? "Choose a descriptive name for your folder. It will help organize your project structure."
+                      : "Include the file extension (e.g., .js, .css, .md) to ensure proper syntax highlighting."
+                    }
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="px-6 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 font-semibold hover:shadow-md focus:ring-2 focus:ring-gray-300/50 focus:outline-none"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={`px-6 py-2.5 text-white rounded-xl font-semibold transition-all duration-200 focus:ring-2 focus:outline-none hover:shadow-lg transform hover:scale-105 active:scale-95 ${
+                      createNodeType === "folder"
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-blue-300/50 shadow-blue-200/50"
+                        : "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 focus:ring-green-300/50 shadow-green-200/50"
+                    } shadow-lg`}
+                  >
+                    <span className="flex items-center space-x-2">
+                      {createNodeType === "folder" ? (
+                        <FolderPlus size={16} />
+                      ) : (
+                        <FilePlus size={16} />
+                      )}
+                      <span>Create {createNodeType === "folder" ? "Folder" : "File"}</span>
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-red-900/40 via-black/50 to-red-900/40 backdrop-blur-md"
+            onClick={() => setIsDeleteModalOpen(false)}
+          />
+          {/* Modal */}
+          <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-0 w-full max-w-lg mx-4 transform transition-all animate-in zoom-in-95 duration-300 slide-in-from-bottom-4">
+            {/* Gradient Header */}
+            <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-red-500 via-red-600 to-rose-600">
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative px-6 py-4 flex items-center space-x-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg">
+                  <Trash2 size={24} className="text-white drop-shadow-sm" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white drop-shadow-sm">
+                    Delete Item
+                  </h3>
+                  <p className="text-white/80 text-sm font-medium mt-1">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-6 p-4 bg-red-50/80 border border-red-200/50 rounded-xl">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 p-1 bg-red-100 rounded-lg">
+                    <Trash2 size={16} className="text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-gray-800 font-medium leading-relaxed">
+                      Are you sure you want to delete{" "}
+                      <span className="font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-md">
+                        "{deleteNodeName}"
+                      </span>
+                      ?
+                    </p>
+                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                      This will permanently remove the item and all its contents from your project. This action cannot be reversed.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-6 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 font-semibold hover:shadow-md focus:ring-2 focus:ring-gray-300/50 focus:outline-none"
+                >
+                  Keep Item
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-6 py-2.5 text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-xl font-semibold transition-all duration-200 focus:ring-2 focus:ring-red-300/50 focus:outline-none hover:shadow-lg transform hover:scale-105 active:scale-95 shadow-lg shadow-red-200/50"
+                >
+                  <span className="flex items-center space-x-2">
+                    <Trash2 size={16} />
+                    <span>Delete Forever</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
